@@ -11,31 +11,31 @@ from django import forms
 from locking import LOCK_TIMEOUT, views
 
 class LockableAdmin(admin.ModelAdmin):
-    @property
-    def media(self):
-        # because reverse() doesn't yet work when this module is first loaded
-        # (the urlconf still has to load at that point) the media definition
-        # has to be dynamic, and we can't simply add a Media class to the
-        # ModelAdmin as you usually would.
-        #
-        # Doing so would result in an ImproperlyConfigured exception, stating
-        # "The included urlconf doesn't have any patterns in it."
-        # 
-        # See http://docs.djangoproject.com/en/dev/topics/forms/media/#media-as-a-dynamic-property
-        # for more information about dynamic media definitions.
+#     @property
+#     class Media:
+#         # because reverse() doesn't yet work when this module is first loaded
+#         # (the urlconf still has to load at that point) the media definition
+#         # has to be dynamic, and we can't simply add a Media class to the
+#         # ModelAdmin as you usually would.
+#         #
+#         # Doing so would result in an ImproperlyConfigured exception, stating
+#         # "The included urlconf doesn't have any patterns in it."
+#         # 
+#         # See http://docs.djangoproject.com/en/dev/topics/forms/media/#media-as-a-dynamic-property
+#         # for more information about dynamic media definitions.
+#         
+#         css = {
+#             'all': ('locking/css/locking.css',)
+#             }
+#         js = (
+#             'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js', 
+#             'locking/js/jquery.url.packed.js',
+#             #reverse('django.views.i18n.javascript_catalog'),
+#             #reverse('locking_variables'),
+#             'locking/js/admin.locking.js',
+#             )
         
-        css = {
-            'all': ('locking/css/locking.css',)
-            }
-        js = (
-            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js', 
-            'locking/js/jquery.url.packed.js',
-            #reverse('django.views.i18n.javascript_catalog'),
-            reverse('locking_variables'),
-            'locking/js/admin.locking.js',
-            )
-        
-        return forms.Media(css=css, js=js)
+        #return forms.Media(css=css, js=js)
     
     def changelist_view(self, request, extra_context=None):
         # we need the request objects in a few places where it's usually not present, 
