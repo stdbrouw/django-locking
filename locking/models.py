@@ -4,7 +4,7 @@ from datetime import datetime
 
 from django.db import models
 from django.conf import settings
-from django.contrib.auth import models as auth
+from account import models as auth
 
 from locking import LOCK_TIMEOUT, logger
 
@@ -127,11 +127,12 @@ class LockableModel(models.Model):
         """
         logger.info("Attempting to open up a lock on `%s` by user `%s`" % (self, user))
     
+    	self.unlock()
         # refactor: should raise exceptions instead
-        if self.is_locked_by(user):
-            self.unlock()
-        else:
-            raise ObjectLockedError("Trying to unlock for another user than the one who initiated the currently active lock. This is not allowed. You may want to try a manual override through the `unlock` method instead.")
+        #if self.is_locked_by(user):
+        #    self.unlock()
+        #else:
+        #    raise ObjectLockedError("Trying to unlock for another user than the one who initiated the currently active lock. This is not allowed. You may want to try a manual override through the `unlock` method instead.")
     
     def lock_applies_to(self, user):
         """
