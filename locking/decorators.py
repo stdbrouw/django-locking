@@ -26,11 +26,13 @@ def is_lockable(fn):
                 lockable = False
         except ContentType.DoesNotExist:
             lockable = False
-            
+
         if lockable:
             return fn(request, app, model, *vargs, **kwargs)
         else:
-            return HttpResponse(status=404)
+            
+            return HttpResponse(status=200)
+            #return HttpResponse(status=404)
     return view
 
 def log(view):
