@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import models as auth
 
 from locking import LOCK_TIMEOUT, logger
+from locking.managers import LockManager
 
 class ObjectLockedError(IOError):
     pass
@@ -14,7 +15,9 @@ class ObjectLockedError(IOError):
 class LockableModel(models.Model):
     class Meta:
         abstract = True
-        
+
+    objects = LockManager()
+
     _locked_at = models.DateTimeField(db_column='locked_at', 
         null=True,
         editable=False)
