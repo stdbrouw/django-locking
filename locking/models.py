@@ -4,8 +4,10 @@ from datetime import datetime
 
 from django.db import models
 from django.conf import settings
-from account import models as auth
-
+try:
+	from account import models as auth
+except:
+	from django.contrib.auth import models as auth
 from locking import LOCK_TIMEOUT, logger
 
 class ObjectLockedError(IOError):
