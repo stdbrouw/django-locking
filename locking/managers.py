@@ -7,23 +7,22 @@ from locking import LOCK_TIMEOUT
 
 class LockManager(models.Manager):
     def locked(self):
-        timeout_delta = datetime.timedelta(seconds=LOCK_TIMEOUT)
-        timeout = datetime.datetime.now() - timeout_delta
+        now = datetime.datetime.now()
         qs = super(LockManager, self).get_query_set()
-        qs = qs.filter(_locked_at__gte=timeout)
+        qs = qs.extra(select={'expires_at':'DATE_ADD(locked_at,INTERVAL 120 SECOND)'})
+        qs = qs.extra(where=['DATE_ADD(locked_at,INTERVAL %s SECOND) > %s'], params=[LOCK_TIMEOUT, now])
         return qs
 
     def unlocked(self):
-        timeout_delta = datetime.timedelta(seconds=LOCK_TIMEOUT)
-        timeout = datetime.datetime.now() + timeout_delta
+        now = datetime.datetime.now()
         qs = super(LockManager, self).get_query_set()
-        qs = qs.filter(Q(_locked_at__lte=timeout) | Q(_locked_at__isnull=True))
+        qs = qs.extra(select={'expires_at':'DATE_ADD(locked_at,INTERVAL 120 SECOND)'})
+        qs = qs.extra(where=['DATE_ADD(locked_at,INTERVAL %s SECOND) < %s or locked_at IS NULL'], params=[LOCK_TIMEOUT, now])
         return qs
 
     def locked_for(self, user):
-        timeout_delta = datetime.timedelta(seconds=LOCK_TIMEOUT)
-        timeout = datetime.datetime.now() - timeout_delta
         qs = super(LockManager, self).get_query_set()
-        qs = qs.filter(_locked_at__gt=timeout)
+        qs = qs.extra(select={'expires_at':'DATE_ADD(locked_at,INTERVAL 120 SECOND)'})
+        qs = qs.extra(where=['DATE_ADD(locked_at,INTERVAL %s SECOND) > %s'], params=[LOCK_TIMEOUT, now])
         qs = qs.filter(_locked_by = user)
         return qs
