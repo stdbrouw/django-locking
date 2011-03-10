@@ -7,8 +7,8 @@ locking.error = function() {
 	alert(gettext('An unexpected locking error occured. You will be' +
 		' forwarded you to a safe place. Sorry!'
 	));
-	//window.location = '/';
-}
+	window.location = '/';
+};
 
 // Delays execution of function calls with support for alert(). 
 // Takes an array of arrays where the first in each array is the function to 
@@ -17,7 +17,6 @@ locking.error = function() {
 locking.delay_execution = function(funcs) {
 	var self = this;
 	var begin_time = new Date().getTime();
-	var funcs = funcs;
 	var execute = function() {
 		var current_time = new Date().getTime();
 		var delay = funcs[0][1];
@@ -26,10 +25,10 @@ locking.delay_execution = function(funcs) {
 			funcs.shift();
 			if (funcs.length === 0) clearInterval(self.interval_id);
 		}
-	}
+	};
 	this.interval_id = setInterval(execute, 200);
 	execute();
-}
+};
 
 // Handles locking on the contrib.admin edit page.
 locking.admin = function() {
@@ -42,9 +41,18 @@ locking.admin = function() {
 		if (!($("body").hasClass("change-form"))) return;
 		
 		// Don't apply locking when adding content.
-		var id = $.url.segment(3);
-		if (id == 'add') return;
+		var is_adding_content = function() {
+			if (
+				$.url.segment(3) === 'add' || // On a standard add page.
+				$.url.segment(0) === 'ajax_select' // On a add page handled by 
+												  // the ajax_select app.
+			) return true;
+			return false;
+		};
+		if (is_adding_content()) return;
 		
+		// Get url parts.
+		var id = $.url.segment(3);
 		var app = $.url.segment(1);
 		var model = $.url.segment(2);
 		
@@ -57,32 +65,41 @@ locking.admin = function() {
 		
 		// Texts.
 		var text = {};
-		
 		text.warn = gettext('Your lock on this page expires in less than %s' +
 			' minutes. Either save the page or refresh it' + 
-			' (hit the F5 button) to renew your lock.')
-		;
+			' (hit the F5 button) to renew your lock.');
 		text.is_locked = gettext('This page is locked by <em>%(for_user)s' + 
-			'</em>. you can view the content but not edit it.');
+			'</em>. You can view the content but not edit it.');
 		text.has_expired = gettext('Your lock on this page is expired.' + 
 			' Reload the page to renew it.');
-
+		
+		// Creates div in top of page.
+		var create_notification_area = function() {
+			$("#content-main").prepend(
+				'<div id="locking_notification"></div>');
+		};
+		
+		// Scrolls to the top, updates content of notification area and fades
+		// it in.
+		var update_notification_area = function(content) {
+			$('html, body').scrollTop(0);
+			$("#content-main #locking_notification").html(content).hide()
+				                                    .fadeIn('slow');
+		};
+		
 		// Displays a warning that the page is about to expire.
 		var display_warning = function() {
 			minutes = Math.round((settings.time_until_expiration - 
 				settings.time_until_warning) / 60);
 			if (minutes < 1) minutes = 1;
-			alert(interpolate(text.warn, [minutes]));
+			update_notification_area(interpolate(text.warn, [minutes]));
 		};
 		
 		// Displays notice on top of page that the page is locked by someone 
 		// else.
 		var display_islocked = function(data) {
-			var notice = '<p class="is_locked">' +
-				interpolate(text.is_locked, data, true)
-				+ '</p>';
-			$("#content-main").prepend(notice);
-		}
+			update_notification_area(interpolate(text.is_locked, data, true));
+		};
 		
 		// Disables all form elements.
 		var disable_form = function() {
@@ -93,19 +110,22 @@ locking.admin = function() {
 		// TODO: Falsely enables previously disabled form elements.
 		var enable_form = function() {
 			$(":input").removeAttr("disabled");
-		}
+		};
 		
 		// The user did not save in time, expire the page.
 		var expire_page = function() {
 			disable_form();
-			alert(text.has_expired);
-		}
+			update_notification_area(text.has_expired);
+		};
 		
 		// Request a lock on the page, and unlocks page when the user leaves.
 		// Adds delayed execution of user notifications.
 		var lock_page = function() {
 			var request_lock = function() {
-				var parse_request_lock = function(jqXHR, textStatus) {
+				var parse_request_lock_responce = function(jqXHR, textStatus) {
+					// TODO: It seems ugly to use response codes like this, it
+					// should be allowed (i.e. not 403) to ask if an object is
+					// locked. Return a json object instead. 
 					if (jqXHR.status === 403) {
 						display_islocked();
 						return;
@@ -118,57 +138,63 @@ locking.admin = function() {
 					} else {
 						locking.error();
 					}
-				}
+				};
 				$.ajax({
 					url: urls.lock,
-					complete: parse_request_lock,
+					complete: parse_request_lock_responce
 				});
-			}
+			};
 			var request_unlock = function() {
 				// We have to assure that our unlock request actually gets
 				// through before the user leaves the page, so it shouldn't
 				// run asynchronously.
 				$.ajax({
 					url: urls.unlock,
-					async: false,
-				})
+					async: false
+				});
 			};
 			request_lock();
 			$(window).unload(request_unlock);
-		}
+		};
 		
 		// The server gave us locking info. Either lock or keep it unlocked
 		// while showing notification.
 		var parse_succesful_request = function(data, textStatus, jqXHR) {
-			eval('data = ' + data);
-			if (!data['applies']) {
+			if (!data.applies) {
 				lock_page();
 			} else {
 				display_islocked(data);
 			}
-		}
+		};
 		
 		// Polls server for the page lock status.
 		var request_locking_info = function() {
 			$.ajax({
 				url: urls.is_locked,
 				success: parse_succesful_request,
-				error: locking.error,
+				error: locking.error
 			});
 		};
 		
-		// Disable form initially.
+		// Initialize.
+		create_notification_area();
 		disable_form();
 		request_locking_info();
 		
 	} catch(err) {
 		locking.error();
 	}
-}
+};
 
 // Catches if jquery is not included.
 try {
 	$(locking.admin);	
 } catch(err) {
-	locking.error();
+	// Insanely paranoid. If gettext does not exist in locking.error(), we
+	// catch that and just redirect to a safe place.
+	try {
+		locking.error();
+	} catch (err) {
+		window.location = '/';
+	}
 }

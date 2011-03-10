@@ -49,13 +49,12 @@ def unlock(request, app, model, id):
 @is_lockable
 def is_locked(request, app, model, id):
     obj = utils.gather_lockable_models()[app][model].objects.get(pk=id)
-
     response = simplejson.dumps({
         "is_active": obj.is_locked,
         "for_user": getattr(obj.locked_by, 'username', None),
         "applies": obj.lock_applies_to(request.user),
         })
-    return HttpResponse(response)
+    return HttpResponse(response, mimetype='application/json')
 
 @log
 def js_variables(request):
