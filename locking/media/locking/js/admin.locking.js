@@ -7,7 +7,7 @@ locking.error = function() {
 	alert(gettext('An unexpected locking error occured. You will be' +
 		' forwarded you to a safe place. Sorry!'
 	));
-	window.location = '/';
+	//window.location = '/';
 }
 
 // Delays execution of function calls with support for alert(). 
@@ -58,29 +58,29 @@ locking.admin = function() {
 		// Texts.
 		var text = {};
 		
-		text.warn = 'Your lock on this page expires in less than %s minutes.' +
-			' Either save the page or refresh it (hit the F5 button) to' + 
-			' renew your lock.'
+		text.warn = gettext('Your lock on this page expires in less than %s' +
+			' minutes. Either save the page or refresh it' + 
+			' (hit the F5 button) to renew your lock.')
 		;
-		text.is_locked = 'This page is locked by <em>%(for_user)s</em>.' + 
-			' you can view the content but not edit it.'
-		;
-		text.has_expired = 'Your lock on this page is expired. Reload the page'
-			+ ' to renew it.'
-		;
-		
+		text.is_locked = gettext('This page is locked by <em>%(for_user)s' + 
+			'</em>. you can view the content but not edit it.');
+		text.has_expired = gettext('Your lock on this page is expired.' + 
+			' Reload the page to renew it.');
+
 		// Displays a warning that the page is about to expire.
 		var display_warning = function() {
 			minutes = Math.round((settings.time_until_expiration - 
 				settings.time_until_warning) / 60);
 			if (minutes < 1) minutes = 1;
-			alert(interpolate(gettext(text.warn), [minutes]));
+			alert(interpolate(text.warn, [minutes]));
 		};
 		
 		// Displays notice on top of page that the page is locked by someone 
 		// else.
-		var display_islocked = function() {
-			var notice = interpolate(gettext(text.is_locked), lock, true);
+		var display_islocked = function(data) {
+			var notice = '<p class="is_locked">' +
+				interpolate(text.is_locked, data, true)
+				+ '</p>';
 			$("#content-main").prepend(notice);
 		}
 		
@@ -98,17 +98,30 @@ locking.admin = function() {
 		// The user did not save in time, expire the page.
 		var expire_page = function() {
 			disable_form();
-			alert(gettext(text.has_expired));
+			alert(text.has_expired);
 		}
 		
 		// Request a lock on the page, and unlocks page when the user leaves.
 		// Adds delayed execution of user notifications.
 		var lock_page = function() {
 			var request_lock = function() {
+				var parse_request_lock = function(jqXHR, textStatus) {
+					if (jqXHR.status === 403) {
+						display_islocked();
+						return;
+					} else if (jqXHR.status === 200) {
+						enable_form();
+						locking.delay_execution([
+							[display_warning, settings.time_until_warning], 
+							[expire_page, settings.time_until_expiration]
+						]);
+					} else {
+						locking.error();
+					}
+				}
 				$.ajax({
 					url: urls.lock,
-					error: locking.error,
-					success: enable_form,
+					complete: parse_request_lock,
 				});
 			}
 			var request_unlock = function() {
@@ -122,16 +135,17 @@ locking.admin = function() {
 			};
 			request_lock();
 			$(window).unload(request_unlock);
-			locking.delay_execution([
-				[display_warning, settings.time_until_warning], 
-				[expire_page, settings.time_until_expiration]
-			]);
 		}
 		
 		// The server gave us locking info. Either lock or keep it unlocked
 		// while showing notification.
 		var parse_succesful_request = function(data, textStatus, jqXHR) {
-			if (data.applies) display_islocked(); else lock_page();
+			eval('data = ' + data);
+			if (!data['applies']) {
+				lock_page();
+			} else {
+				display_islocked(data);
+			}
 		}
 		
 		// Polls server for the page lock status.
