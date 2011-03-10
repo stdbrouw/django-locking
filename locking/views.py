@@ -1,10 +1,8 @@
 import simplejson
-
 from django.http import HttpResponse
-from django.core.urlresolvers import reverse
-
+from django.conf import settings
 from locking.decorators import user_may_change_model, is_lockable, log
-from locking import utils, LOCK_TIMEOUT, logger, models
+from locking import utils, models
 
 """
 These views are called from javascript to open and close assets (objects), in order
@@ -49,7 +47,7 @@ def unlock(request, app, model, id):
 @log
 @user_may_change_model
 @is_lockable
-def is_locked(request, app, model, id):    
+def is_locked(request, app, model, id):
     obj = utils.gather_lockable_models()[app][model].objects.get(pk=id)
 
     response = simplejson.dumps({
@@ -61,8 +59,10 @@ def is_locked(request, app, model, id):
 
 @log
 def js_variables(request):
-    response = "var locking = " + simplejson.dumps({
-        'base_url': "/".join(request.path.split('/')[:-1]),
-        'timeout': LOCK_TIMEOUT,
-        })
-    return HttpResponse(response)
+    response = "var locking = locking || {}; locking.settings = %s" % ( 
+        simplejson.dumps({
+            'base_url': "/".join(request.path.split('/')[:-1]),
+            'time_until_expiration': settings.LOCKING['time_until_expiration'],
+            'time_until_warning': settings.LOCKING['time_until_warning'],
+        }))
+    return HttpResponse(response, mimetype='application/javascript')
