@@ -4,9 +4,15 @@ var locking = locking || {};
 // Global error function that redirects to the frontpage if something bad
 // happens.
 locking.error = function() {
-	alert(gettext('An unexpected locking error occured. You will be' +
-		' forwarded you to a safe place. Sorry!'
-	));
+	var text = ('An unexpected locking error occured. You will be' +
+		' forwarded to a safe place. Sorry!'
+	);
+	// Catch if gettext has not been included.
+	try {
+		alert(gettext(text));
+	} catch(err) {
+		alert(text);
+	}
 	window.location = '/';
 };
 
@@ -45,7 +51,7 @@ locking.admin = function() {
 			if (
 				$.url.segment(3) === 'add' || // On a standard add page.
 				$.url.segment(0) === 'ajax_select' // On a add page handled by 
-												  // the ajax_select app.
+												   // the ajax_select app.
 			) return true;
 			return false;
 		};
@@ -141,7 +147,8 @@ locking.admin = function() {
 				};
 				$.ajax({
 					url: urls.lock,
-					complete: parse_request_lock_responce
+					complete: parse_request_lock_responce,
+					cache: false
 				});
 			};
 			var request_unlock = function() {
@@ -150,7 +157,8 @@ locking.admin = function() {
 				// run asynchronously.
 				$.ajax({
 					url: urls.unlock,
-					async: false
+					async: false,
+					cache: false
 				});
 			};
 			request_lock();
@@ -172,13 +180,14 @@ locking.admin = function() {
 			$.ajax({
 				url: urls.is_locked,
 				success: parse_succesful_request,
-				error: locking.error
+				error: locking.error,
+				cache: false
 			});
 		};
 		
 		// Initialize.
-		create_notification_area();
 		disable_form();
+		create_notification_area();
 		request_locking_info();
 		
 	} catch(err) {
@@ -190,11 +199,5 @@ locking.admin = function() {
 try {
 	$(locking.admin);	
 } catch(err) {
-	// Insanely paranoid. If gettext does not exist in locking.error(), we
-	// catch that and just redirect to a safe place.
-	try {
-		locking.error();
-	} catch (err) {
-		window.location = '/';
-	}
+	locking.error();
 }
