@@ -14,18 +14,19 @@ class LockableAdmin(admin.ModelAdmin):
               '/locking/_variables.js',
               'locking/js/admin.locking.js',
              )
-
+        
     def changelist_view(self, request, extra_context=None):
         # we need the request objects in a few places where it's usually not present, 
         # so we're tacking it on to the LockableAdmin class
         self.request = request
         return super(LockableAdmin, self).changelist_view(request, extra_context)
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request, obj, form, change, *args, **kwargs):
         # object creation doesn't need/have locking in place
         if obj.pk:
             obj.unlock_for(request.user)
-        obj.save()
+        super(LockableAdmin, self).save_model(request, obj, form, change, *args, 
+                                          **kwargs)
         
     def lock(self, obj):
         if obj.is_locked:

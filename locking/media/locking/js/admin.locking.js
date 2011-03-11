@@ -1,3 +1,9 @@
+/*
+Client side handling of locking for the ModelAdmin change page.
+
+Only works on change-form pages, not for inline edits in the list view.
+*/
+
 // Set the namespace.
 var locking = locking || {};
 
@@ -16,10 +22,15 @@ locking.error = function() {
 	window.location = '/';
 };
 
-// Delays execution of function calls with support for alert(). 
-// Takes an array of arrays where the first in each array is the function to 
-// call and the second is the delay in seconds. Must be ordered after delays 
-// descending, and can only be called once.
+/*
+Delays execution of function calls with support for events that pauses the 
+script, like the use of alert().
+
+Takes an array of arrays, each consisting of first the function to be delayed
+and second the delay in seconds. Must be ordered after delays descending.
+
+This is a one trick pony and must only be called once or bad things happens.
+*/
 locking.delay_execution = function(funcs) {
 	var self = this;
 	var begin_time = new Date().getTime();
@@ -38,48 +49,46 @@ locking.delay_execution = function(funcs) {
 
 // Handles locking on the contrib.admin edit page.
 locking.admin = function() {
-	// Needs a try/catch here as well as errors does not propagate outside the
-	// onready call.
+	// Needs a try/catch here as well because exceptions does not propagate 
+	// outside the onready call.
 	try {
 		settings = locking.settings;
-		// Lock only works on change-form pages, not for inline edits in the 
-		//list view.
+		
+		// Don't lock page if not on change-form page.
 		if (!($("body").hasClass("change-form"))) return;
 		
-		// Don't apply locking when adding content.
 		var is_adding_content = function() {
-			if (
-				$.url.segment(3) === 'add' || // On a standard add page.
-				$.url.segment(0) === 'ajax_select' // On a add page handled by 
-												   // the ajax_select app.
-			) return true;
-			return false;
+			return ($.url.segment(3) === 'add' || // On a standard add page.
+					// On a add page handled by the ajax_select app.
+				    $.url.segment(0) === 'ajax_select')
 		};
+		// Don't apply locking when adding content.
 		if (is_adding_content()) return;
 		
 		// Get url parts.
-		var id = $.url.segment(3);
 		var app = $.url.segment(1);
 		var model = $.url.segment(2);
+		var id = $.url.segment(3);
 		
 		// Urls.
 		var base_url = settings.base_url + "/" + [app, model, id].join("/");
-		var urls = {};
-		urls.is_locked = base_url + "/is_locked/";
-		urls.lock = base_url + "/lock/";
-		urls.unlock = base_url + "/unlock/";
-		
+		var urls = {
+			is_locked: base_url + "/is_locked/",
+			lock: base_url + "/lock/",
+			unlock: base_url + "/unlock/"
+		};
 		// Texts.
-		var text = {};
-		text.warn = gettext('Your lock on this page expires in less than %s' +
-			' minutes. Either save the page or refresh it' + 
-			' (hit the F5 button) to renew your lock.');
-		text.is_locked = gettext('This page is locked by <em>%(for_user)s' + 
-			'</em>. You can view the content but not edit it.');
-		text.has_expired = gettext('Your lock on this page is expired.' + 
-			' Reload the page to renew it.');
+		var text = {
+			warn: gettext('Your lock on this page expires in less than %s' +
+				' minutes. Either save the page or refresh it' + 
+				' (hit the F5 button) to renew your lock.'),
+			is_locked: gettext('This page is locked by <em>%(for_user)s' + 
+				'</em>. You can view the content but not edit it.'),
+			has_expired: gettext('Your lock on this page is expired.' + 
+				' Reload the page to renew it.')
+		};
 		
-		// Creates div in top of page.
+		// Creates empty div in top of page.
 		var create_notification_area = function() {
 			$("#content-main").prepend(
 				'<div id="locking_notification"></div>');
@@ -109,13 +118,14 @@ locking.admin = function() {
 		
 		// Disables all form elements.
 		var disable_form = function() {
+			$(":input[disabled]").addClass('_locking_initially_disabled');
 			$(":input").attr("disabled", "disabled");
 		};
 		
-		// Enables all form elements.
-		// TODO: Falsely enables previously disabled form elements.
+		// Enables all form elements that was not disabled from the start.
 		var enable_form = function() {
-			$(":input").removeAttr("disabled");
+			$(":input").not('._locking_initially_disabled')
+			           .removeAttr("disabled");
 		};
 		
 		// The user did not save in time, expire the page.
