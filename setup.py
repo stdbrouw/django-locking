@@ -1,6 +1,6 @@
 import os
 from setuptools import setup, find_packages
-version = '0.2.1'
+version = '0.3.0'
 README = os.path.join(os.path.dirname(__file__), 'README')
 long_description = open(README).read()
 setup(name='django-locking',
@@ -18,7 +18,7 @@ setup(name='django-locking',
                    'Topic :: Utilities'],
       keywords='locking mutex',
       author='Stijn Debrouwere',
-      #author_email='stijn@stdout.be',
+      author_email='stijn@stdout.be',
       url='http://stdbrouw.github.com/django-locking/',
       download_url='http://www.github.com/stdbrouw/django-locking/tarball/master',
       license='BSD',

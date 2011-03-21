@@ -9,11 +9,23 @@ try:
 except:
 	from django.contrib.auth import models as auth
 from locking import LOCK_TIMEOUT, logger
+import managers
 
 class ObjectLockedError(IOError):
     pass
 
 class LockableModel(models.Model):
+    """ LockableModel comes with three managers: ``objects``, ``locked`` and 
+    ``unlocked``. They do what you'd expect them to. """
+
+    objects = managers.Manager()
+    locked = managers.LockedManager()
+    unlocked = managers.UnlockedManager()
+
+    def __init__(self, *vargs, **kwargs):
+        super(LockableModel, self).__init__(*vargs, **kwargs)
+        self._state.locking = False
+
     class Meta:
         abstract = True
         
@@ -60,7 +72,6 @@ class LockableModel(models.Model):
         Works by calculating if the last lock (self.locked_at) has timed out or not.
         """
         if isinstance(self.locked_at, datetime):
-            # artikels worden een half uur gesloten
             if (datetime.today() - self.locked_at).seconds < LOCK_TIMEOUT:
                 return True
             else:
@@ -107,6 +118,9 @@ class LockableModel(models.Model):
             self._locked_by = user
             self._hard_lock = self.__init_hard_lock = hard_lock
             date = self.locked_at.strftime("%H:%M:%S")
+            # an administrative toggle, to make it easier for devs to extend `django-locking`
+            # and react to locking and unlocking
+            self._state.locking = True
             logger.info("Initiated a %s lock for `%s` at %s" % (self.lock_type, self.locked_by, self.locked_at))     
 
     def unlock(self):
@@ -116,6 +130,9 @@ class LockableModel(models.Model):
         locks themselves. Otherwise, use ``unlock_for``.
         """
         self._locked_at = self._locked_by = None
+        # an administrative toggle, to make it easier for devs to extend `django-locking`
+        # and react to locking and unlocking
+        self._state.locking = True
         logger.info("Disengaged lock on `%s`" % self)
     
     def unlock_for(self, user):
@@ -169,3 +186,4 @@ class LockableModel(models.Model):
         self.__init_hard_lock = False
         
         super(LockableModel, self).save(*vargs, **kwargs)
+        self._state.locking = False
