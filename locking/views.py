@@ -19,7 +19,7 @@ def lock(request, app, model, id):
 
     try:
         obj.lock_for(request.user)
-        obj.save()
+        obj.__class__.objects.filter(id=obj.id).update(_locked_at=obj._locked_at, _locked_by=obj._locked_by, _hard_lock=obj._hard_lock)
         return HttpResponse(status=200)
     except models.ObjectLockedError:
         # The user tried to overwrite an existing lock by another user.
@@ -41,7 +41,7 @@ def unlock(request, app, model, id):
     # user won't get accidentally overwritten.
     try:
         obj.unlock_for(request.user)
-        obj.save()    
+        obj.__class__.objects.filter(id=obj.id).update(_locked_at=obj._locked_at, _locked_by=obj._locked_by, _hard_lock=obj._hard_lock)
         return HttpResponse(status=200)
     except models.ObjectLockedError:
         return HttpResponse(status=403)
