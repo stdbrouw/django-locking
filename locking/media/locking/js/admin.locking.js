@@ -9,7 +9,15 @@ more wide-spread, we could make a lot of this javascript superfluous
 
 		function warning () {
 			var minutes = locking.timeout/60;
-			alert(interpolate(gettext("Your lock on this content will expire in a bit less than five minutes. Please save your content and navigate back to this edit page to close the content again for another %s minutes."), minutes));
+			alert(interpolate(gettext("Your lock on this content will expire in a bit less than five minutes. Please save your content and navigate back to this edit page to close the content again for another %s minutes."), Array(minutes)));
+		}
+		
+		function lock_post(base_url){
+			$.get(base_url + "/lock/");
+		}
+		
+		function unlock_post(base_url){
+			$.ajax({'url': base_url + "/unlock/", 'async': false});
 		}
 		
 		function locking_mechanism (base_url, app, model, id) {
@@ -29,21 +37,21 @@ more wide-spread, we could make a lot of this javascript superfluous
 				} else {
 					$(":input").removeAttr("disabled");
 					
-					$.get(base_url + "/lock/");
+					lock_post(base_url);
 					
 					$(window).unload(function(){
 						// We have to assure that our unlock request actually gets
 						// through before the user leaves the page, so it shouldn't
 						// run asynchronously.
 						
-						$.ajax({'url': base_url + "/unlock/", 'async': false});
+						unlock_post(base_url);
 					})
 				}
 			})
 			
 			// We give users a warning that their lock is about to expire,  
 			// five minutes before it actually does.
-			setTimeout(warning, 1000*(locking.timeout-300));
+			setInterval(function(){lock_post(base_url)}, 50000);
 		}
 		
 		function locking_toggle(base_url){
@@ -67,9 +75,16 @@ more wide-spread, we could make a lot of this javascript superfluous
 		}
 		
 		$(document).ready(function(){
-			var app = $.url.segment(1);
-			var model = $.url.segment(2);
-			var id = $.url.segment(3);  
+			if ($.url.segment(0) == 'admin'){
+				var app = $.url.segment(1);
+				var model = $.url.segment(2);
+				var id = $.url.segment(3);  
+			}else {
+				var app = $.url.segment(0);
+				var model = $.url.segment(1);
+				var id = $.url.segment(2);  
+			}
+			
 			var base_url = locking.base_url + "/" + [app, model, id].join("/");
 		
 			if ($("body").hasClass("change-form")) {
