@@ -36,7 +36,7 @@ class Lock(models.Model):
 	
 	model = models.CharField(max_length=255, null=True)
 	
-	entry_id = models.PositiveIntegerField()
+	entry_id = models.PositiveIntegerField(db_index=True)
 	
 	_locked_by = models.ForeignKey(auth.User, 
 		db_column='locked_by',
