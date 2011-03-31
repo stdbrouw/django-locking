@@ -56,7 +56,7 @@ more wide-spread, we could make a lot of this javascript superfluous
 		
 		function locking_toggle(base_url){
 			//Locking toggle function
-			$(".lock-status").click(function(){
+			$("a.lock-status").click(function(){
 			
 				id = $(this).text();
 				if ($(this).hasClass("locked")){
