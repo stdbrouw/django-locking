@@ -43,8 +43,6 @@ def lock(request, app, model, id):
 @user_may_change_model
 @is_lockable
 def unlock(request, app, model, id):
-	obj = Lock.objects.get(entry_id=id, app=app, model=model, _locked_by=request.user)
-
 	# Users who don't have exclusive access to an object anymore may still
 	# request we unlock an object. This happens e.g. when a user navigates
 	# away from an edit screen that's been open for very long.
@@ -53,10 +51,11 @@ def unlock(request, app, model, id):
 	# That way, any new lock that may since have been put in place by another 
 	# user won't get accidentally overwritten.
 	try:
+		obj = Lock.objects.get(entry_id=id, app=app, model=model)
 		obj.delete()
 
 		return HttpResponse(status=200)
-	except ObjectLockedError:
+	except:
 		return HttpResponse(status=403)
 
 @log
