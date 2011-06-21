@@ -112,7 +112,7 @@ class Lock(models.Model):
 		
 		Don't use hard locks unless you really need them. See :doc:`design`.
 		"""
-		logger.info("Attempting to initiate a lock for user `%s`" % user)
+		logger.debug("Attempting to initiate a lock for user `%s`" % user)
 
 		if not isinstance(user, auth.User):
 			raise ValueError("You should pass a valid auth.User to lock_for.")
@@ -128,7 +128,7 @@ class Lock(models.Model):
 			# an administrative toggle, to make it easier for devs to extend `django-locking`
 			# and react to locking and unlocking
 			self._state.locking = True
-			logger.info("Initiated a %s lock for `%s` at %s" % (self.lock_type, self.locked_by, self.locked_at))	 
+			logger.debug("Initiated a %s lock for `%s` at %s" % (self.lock_type, self.locked_by, self.locked_at))	 
 
 	def unlock(self):
 		"""
@@ -140,7 +140,7 @@ class Lock(models.Model):
 		# an administrative toggle, to make it easier for devs to extend `django-locking`
 		# and react to locking and unlocking
 		self._state.locking = True
-		logger.info("Disengaged lock on `%s`" % self)
+		logger.debug("Disengaged lock on `%s`" % self)
 	
 	def unlock_for(self, user):
 		"""
@@ -151,7 +151,7 @@ class Lock(models.Model):
 		Will raise a ObjectLockedError exception when the current user isn't authorized to
 		unlock the object.
 		"""
-		logger.info("Attempting to open up a lock on `%s` by user `%s`" % (self, user))
+		logger.debug("Attempting to open up a lock on `%s` by user `%s`" % (self, user))
 	
 		self.unlock()
 		# refactor: should raise exceptions instead
@@ -166,13 +166,13 @@ class Lock(models.Model):
 		``lock_applies_to`` is used to ascertain whether a user is allowed
 		to edit a locked object.
 		"""
-		logger.info("Checking if the lock on `%s` applies to user `%s`" % (self, user))
+		logger.debug("Checking if the lock on `%s` applies to user `%s`" % (self, user))
 		# a lock does not apply to the person who initiated the lock
 		if self.is_locked and self.locked_by != user:
-			logger.info("Lock applies.")
+			logger.debug("Lock applies.")
 			return True
 		else:
-			logger.info("Lock does not apply.")
+			logger.debug("Lock does not apply.")
 			return False
 	
 	def is_locked_by(self, user):
