@@ -9,6 +9,7 @@ from django.utils.translation import ugettext as _
 from django import forms
 
 from locking import LOCK_TIMEOUT, views
+from locking.models import Lock
 
 class LockableAdmin(admin.ModelAdmin):
 #     @property
@@ -71,3 +72,32 @@ class LockableAdmin(admin.ModelAdmin):
     lock.allow_tags = True
     
     list_display = ('__str__', 'lock')
+
+
+def get_lock_for_admin(self_obj, obj):
+	''' 
+	returns the locking status along with a nice icon for the admin interface 
+	use in admin list display like so: list_display = ['title', 'get_lock_for_admin']
+	'''
+	
+	locked_by = ''
+	
+	try:
+		lock = Lock.objects.get(entry_id=obj.id, app=obj.__module__[0:obj.__module__.find('.')], model=obj.__class__.__name__)
+		class_name = 'locked'
+		locked_by = lock.locked_by.display_name
+	except:
+		class_name = 'unlocked'
+	
+	img_path = 	settings.ADMIN_MEDIA_PREFIX + 'blog/img/'
+	
+	output = str(obj.id)
+	
+	if self_obj.request.user.has_perm(u'blog.unlock_post'): 
+	
+		return '<a href="#" class="lock-status ' + class_name + '" title="Locked By: ' + locked_by + '" >' + output  + '</a>'
+	else: 
+		return '<span class="lock-status ' + class_name + '" title="Locked By: ' + locked_by + '">' + output  + '</span>'
+		
+get_lock_for_admin.allow_tags = True
+get_lock_for_admin.short_description = 'Lock'
