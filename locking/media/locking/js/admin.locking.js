@@ -80,12 +80,14 @@ locking.admin = function() {
 		// Texts.
 		var text = {
 			warn: gettext('Your lock on this page expires in less than %s' +
-				' minutes. Either save the page or refresh it' + 
-				' (hit the F5 button) to renew your lock.'),
+				' minutes. Press save or <a href=".">reload the page</a>.',
 			is_locked: gettext('This page is locked by <em>%(for_user)s' + 
-				'</em>. You can view the content but not edit it.'),
-			has_expired: gettext('Your lock on this page is expired.' + 
-				' Reload the page to renew it.')
+				'</em> and editing is disabled.'),
+			has_expired: gettext('Your lock on this page is expired!' + 
+				' Saving your changes might not be possible, ' + 
+				' but you are welcome to try.'
+			),
+			prompt_to_save: 'Do you wish to save the page?',
 		};
 		
 		// Creates empty div in top of page.
@@ -96,18 +98,24 @@ locking.admin = function() {
 		
 		// Scrolls to the top, updates content of notification area and fades
 		// it in.
-		var update_notification_area = function(content) {
+		var update_notification_area = function(content, func) {
 			$('html, body').scrollTop(0);
 			$("#content-main #locking_notification").html(content).hide()
-				                                    .fadeIn('slow');
+				                                    .fadeIn('slow', func);
 		};
 		
 		// Displays a warning that the page is about to expire.
 		var display_warning = function() {
-			minutes = Math.round((settings.time_until_expiration - 
+			var promt_to_save = function() {
+				if (confirm(text.prompt_to_save)) {
+					$('form input[type=submit][name=_continue]').click();
+				}
+			}
+			var minutes = Math.round((settings.time_until_expiration - 
 				settings.time_until_warning) / 60);
 			if (minutes < 1) minutes = 1;
-			update_notification_area(interpolate(text.warn, [minutes]));
+			update_notification_area(interpolate(text.warn, [minutes]), 
+			                         promt_to_save);
 		};
 		
 		// Displays notice on top of page that the page is locked by someone 
@@ -130,7 +138,6 @@ locking.admin = function() {
 		
 		// The user did not save in time, expire the page.
 		var expire_page = function() {
-			disable_form();
 			update_notification_area(text.has_expired);
 		};
 		
@@ -207,7 +214,7 @@ locking.admin = function() {
 
 // Catches if jquery is not included.
 try {
-	$(locking.admin);	
+	$(locking.admin);
 } catch(err) {
 	locking.error();
 }

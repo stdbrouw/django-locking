@@ -17,6 +17,7 @@ def lock(request, app, model, id):
 
     try:
         obj.lock_for(request.user)
+        obj._is_a_locking_request = True
         obj.save()
         return HttpResponse(status=200)
     except models.ObjectLockedError:
@@ -39,6 +40,7 @@ def unlock(request, app, model, id):
     # user won't get accidentally overwritten.
     try:
         obj.unlock_for(request.user)
+        obj._is_a_locking_request = True
         obj.save()    
         return HttpResponse(status=200)
     except models.ObjectLockedError:

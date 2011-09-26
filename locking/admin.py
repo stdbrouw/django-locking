@@ -27,7 +27,7 @@ class LockableAdmin(admin.ModelAdmin):
             obj.unlock_for(request.user)
         super(LockableAdmin, self).save_model(request, obj, form, change, *args, 
                                           **kwargs)
-        
+
     def lock(self, obj):
         if obj.is_locked:
             seconds_remaining = obj.lock_seconds_remaining
