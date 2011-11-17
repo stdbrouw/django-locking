@@ -18,6 +18,9 @@ class Lock(models.Model):
 	""" LockableModel comes with three managers: ``objects``, ``locked`` and 
 	``unlocked``. They do what you'd expect them to. """
 
+	class Meta:
+		unique_together = (("app", "model", "entry_id"),)
+
 	objects = managers.Manager()
 	
 	locked = managers.LockedManager()
