@@ -15,7 +15,7 @@ These improvements entails:
 New settings
 ============
 
-The following two new settings are added:
+The following two new settings are added::
 
 	LOCKING = {
 	    'time_until_warning': 15 * 60, # Seconds.
