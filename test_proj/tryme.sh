@@ -1,3 +1,5 @@
+#!/bin/env sh
+
 git clone git@github.com:runekaagaard/django-locking.git
 cd django-locking/test_proj
 python manage.py syncdb
