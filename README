@@ -22,7 +22,9 @@ The following two new settings are added:
 	    'time_until_expiration': 20 * 60, # Seconds.
 	}
 
-Trying out this fork
-====================
+Trying it out
+=============
 
-Stub, will come in next commit.
+The following command will clone this fork and run the test project::
+
+    curl https://raw.github.com/runekaagaard/django-locking/master/test_proj/tryme.sh | sh 
