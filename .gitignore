@@ -4,3 +4,4 @@ docs/_build
 *.egg-info
 build
 dist
+test_proj/db.sql

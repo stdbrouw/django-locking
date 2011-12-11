@@ -10,9 +10,9 @@ class LockableAdmin(admin.ModelAdmin):
                'all': ('locking/css/locking.css',)
             }
         js = (
-              'locking/js/jquery.url.packed.js',
               '/locking/_variables.js',
               'locking/js/admin.locking.js',
+              'locking/js/jquery.url.packed.js',
              )
         
     def changelist_view(self, request, extra_context=None):

@@ -1,16 +1,28 @@
-What the heck is this?
-----------------------
+About this fork
+===============
 
-Django has seen great adoption in the content management sphere, especially among the newspaper crowd. One of the trickier things to get right, is to make sure that nobody steps on each others toes while editing and modifying existing content. Newspaper editors might not always be aware of what other editors are up to, and this goes double for distributed teams. When different people work on the same content, the one who saves last will win the day, while the other edits are overwritten.
+This fork adds numerous improvements to the admin integration of django-locking.
+These improvements entails:
 
-`django-locking` provides a system that makes concurrent editing impossible, and informs users of what other users are working on and for how long that content will remain locked. Users can still read locked content, but cannot modify or save it.
+- It actually works.
+- Media is included correctly.
+- Adds new settings for specifying the timing of the locks.
+- Warns the user that his lock is about to expire and offers to save the page
+  for him.
+- Informs the user that his lock is expired.
+- Includes a test project.
 
-Documentation
--------------
+New settings
+============
 
-django-locking is fairly well-documented. Check out the docs!
+The following two new settings are added:
 
-License
--------
+	LOCKING = {
+	    'time_until_warning': 15 * 60, # Seconds.
+	    'time_until_expiration': 20 * 60, # Seconds.
+	}
 
-django-locking comes with a simplified BSD license, see the included LICENSE file for details.
+Trying out this fork
+====================
+
+Stub, will come in next commit.

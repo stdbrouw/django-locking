@@ -4,12 +4,21 @@ Client side handling of locking for the ModelAdmin change page.
 Only works on change-form pages, not for inline edits in the list view.
 */
 
+// Make sure jQuery is available.
+if (typeof jQuery === 'undefined') { 
+	jQuery = django.jQuery;
+}
+
 // Set the namespace.
 var locking = locking || {};
 
+// Begin wrap.
+(function($, locking) {
+		
 // Global error function that redirects to the frontpage if something bad
 // happens.
 locking.error = function() {
+	return;
 	var text = ('An unexpected locking error occured. You will be' +
 		' forwarded to a safe place. Sorry!'
 	);
@@ -80,7 +89,7 @@ locking.admin = function() {
 		// Texts.
 		var text = {
 			warn: gettext('Your lock on this page expires in less than %s' +
-				' minutes. Press save or <a href=".">reload the page</a>.',
+				' minutes. Press save or <a href=".">reload the page</a>.'),
 			is_locked: gettext('This page is locked by <em>%(for_user)s' + 
 				'</em> and editing is disabled.'),
 			has_expired: gettext('Your lock on this page is expired!' + 
@@ -212,9 +221,12 @@ locking.admin = function() {
 	}
 };
 
-// Catches if jquery is not included.
+// Catches any error and redirects to a safe place if any.
 try {
 	$(locking.admin);
 } catch(err) {
 	locking.error();
 }
+
+// End wrap.
+})(jQuery, locking);
