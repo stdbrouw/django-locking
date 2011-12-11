@@ -27,4 +27,10 @@ Trying it out
 
 The following command will clone this fork and run the test project::
 
-    curl https://raw.github.com/runekaagaard/django-locking/master/test_proj/tryme.sh > tryme.sh && sh tryme.sh 
+    curl https://raw.github.com/runekaagaard/django-locking/master/test_proj/tryme.sh > tryme.sh && sh tryme.sh
+
+Compatibility
+=============
+
+Works well with https://github.com/runekaagaard/django-admin-save-me-genie. If
+you want to use django-extensions ModificationDateTimeField, see https://github.com/stdbrouw/django-locking/issues/6.
