@@ -1,3 +1,8 @@
+The fork situation
+==================
+
+The newest best maintained fork is at https://github.com/RobCombs/django-locking.
+
 About this fork
 ===============
 
