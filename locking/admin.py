@@ -10,15 +10,14 @@ from django.contrib.contenttypes.models import ContentType
 
 from locking import LOCK_TIMEOUT, views
 from locking.models import Lock
-from locking import settings as _s
+import locking.settings as _s
 
 class LockableAdmin(admin.ModelAdmin):
 
     class Media:
         js = (
-            'http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js', 
             _s.STATIC_URL + 'locking/js/jquery.url.packed.js',
-            _s.ADMIN_URL + "ajax/variables.js",
+            _s.LOCKING_URL + "ajax/variables.js",
             _s.STATIC_URL + "locking/js/admin.locking.js?v=1"
         )
         css = {"all": (_s.STATIC_URL + 'locking/css/locking.css',)}
