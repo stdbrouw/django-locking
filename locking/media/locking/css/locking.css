@@ -1,4 +1,4 @@
-#content-main div#locking_notification {
+#locking_notification {
     border: 2px solid #f00;
     padding: 5px;
     background: #fee;
@@ -6,4 +6,5 @@
     font-weight: bold;
     display: none;
 	width: 510px;
+    margin-top: 10px;
 }

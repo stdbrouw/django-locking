@@ -135,8 +135,8 @@ locking.admin = function() {
     // it in.
     var update_notification_area = function(content, func) {
         $('html, body').scrollTop(0);
-        $("#content-main #locking_notification").html(content).hide()
-                                                .fadeIn('slow', func);
+        $("#locking_notification").html(content).hide()
+                                  .fadeIn('slow', func);
     };
     
     // Displays a warning that the page is about to expire.
@@ -163,12 +163,22 @@ locking.admin = function() {
     var disable_form = function() {
         $(":input[disabled]").addClass('_locking_initially_disabled');
         $(":input").attr("disabled", "disabled");
+
+        // Grapelli's delete is an anchor tag :(
+        $('a.delete-link').each(function() {
+            // Copy over the old_href
+            $(this).attr('old_href', $(this).attr('href'));
+            $(this).attr('href', 'javascript:alert("Page is locked.");');
+        });
     };
     
     // Enables all form elements that was not disabled from the start.
     var enable_form = function() {
         $(":input").not('._locking_initially_disabled')
                    .removeAttr("disabled");
+        $('a.delete-link').each(function() {
+            $(this).attr('href', $(this).attr('old_href'));
+        });
     };
     
     // The user did not save in time, expire the page.
@@ -179,42 +189,33 @@ locking.admin = function() {
     // Request a lock on the page, and unlocks page when the user leaves.
     // Adds delayed execution of user notifications.
     var lock_page = function() {
-        var request_lock = function() {
-            var parse_request_lock_responce = function(jqXHR, textStatus) {
-                // TODO: It seems ugly to use response codes like this, it
-                // should be allowed (i.e. not 403) to ask if an object is
-                // locked. Return a json object instead. 
+        $.ajax({
+            url: urls.lock,
+            cache: false,
+            complete: function(jqXHR, textStatus) {
                 if (jqXHR.status === 403) {
                     display_islocked();
-                    return;
                 } else if (jqXHR.status === 200) {
                     enable_form();
                     locking.delay_execution([
                         [display_warning, settings.time_until_warning], 
                         [expire_page, settings.time_until_expiration]
                     ]);
+                    $(window).unload(function() {
+                        // We have to assure that our unlock request actually 
+                        // gets through before the user leaves the page, so it 
+                        // shouldn't run asynchronously.
+                        $.ajax({
+                            url: urls.unlock,
+                            async: false,
+                            cache: false
+                        });
+                    });
                 } else {
                     locking.error();
                 }
-            };
-            $.ajax({
-                url: urls.lock,
-                complete: parse_request_lock_responce,
-                cache: false
-            });
-        };
-        var request_unlock = function() {
-            // We have to assure that our unlock request actually gets
-            // through before the user leaves the page, so it shouldn't
-            // run asynchronously.
-            $.ajax({
-                url: urls.unlock,
-                async: false,
-                cache: false
-            });
-        };
-        request_lock();
-        $(window).unload(request_unlock);
+            }
+        });
     };
     
     // The server gave us locking info. Either lock or keep it unlocked
