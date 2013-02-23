@@ -43,9 +43,8 @@ class LockableAdmin(admin.ModelAdmin):
         try:
             # object creation doesn't need/have locking in place
             content_type = ContentType.objects.get_for_model(obj)
-            obj = Lock.objects.get(entry_id=obj.id,
-                                   app=content_type.app_label,
-                                   model=content_type.model)
+            obj = Lock.objects.get(content_type=content_type,
+                                   object_id=obj.id)
             obj.unlock_for(request.user)
             obj.save()
         except:
@@ -65,9 +64,9 @@ class LockableAdmin(admin.ModelAdmin):
 
         content_type = ContentType.objects.get_for_model(obj)
         try:
-            lock = Lock.objects.get(entry_id=obj.id,
-                                    app=content_type.app_label,
-                                    model=content_type.model)
+            lock = Lock.objects.get(content_type=content_type,
+                                   object_id=obj.id)
+            
             class_name = 'locked'
             locked_by = lock.locked_by.username
             output = str(obj.id)

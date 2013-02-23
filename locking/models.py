@@ -10,6 +10,8 @@ except:
     from django.contrib.auth import models as auth
 from locking import logger
 import managers
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.contenttypes import generic
 
 class ObjectLockedError(IOError):
     pass
@@ -28,15 +30,14 @@ class Lock(models.Model):
         super(Lock, self).__init__(*vargs, **kwargs)
         self._state.locking = False
 
+    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField()
+
+    content_object = generic.GenericForeignKey('content_type', 'object_id')
+
     _locked_at = models.DateTimeField(db_column='locked_at',
         null=True,
         editable=False)
-
-    app = models.CharField(max_length=255, null=True)
-
-    model = models.CharField(max_length=255, null=True)
-
-    entry_id = models.PositiveIntegerField(db_index=True)
 
     _locked_by = models.ForeignKey(auth.User,
         db_column='locked_by',
