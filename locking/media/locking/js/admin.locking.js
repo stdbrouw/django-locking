@@ -95,9 +95,9 @@ locking.admin = function() {
     
     // Don't lock page if not on change-form page.
     if (!($("body").hasClass("change-form"))) return;
-    
+
     var is_adding_content = function() {
-        return ($.url.segment(3) === 'add' || // On a standard add page.
+        return (id === 'add' || // On a standard add page.
                 // On a add page handled by the ajax_select app.
                 $.url.segment(0) === 'ajax_select')
     };
@@ -170,6 +170,14 @@ locking.admin = function() {
             $(this).attr('old_href', $(this).attr('href'));
             $(this).attr('href', 'javascript:alert("Page is locked.");');
         });
+
+        // Handle CKeditors as well, which is a little annoying since there
+        // is an inherent race condition with it.
+        if(window.CKEDITOR !== undefined) {
+            CKEDITOR.on("instanceReady", function(e) {
+                e.editor.setReadOnly(true);
+            });
+        }
     };
     
     // Enables all form elements that was not disabled from the start.
@@ -179,6 +187,13 @@ locking.admin = function() {
         $('a.delete-link').each(function() {
             $(this).attr('href', $(this).attr('old_href'));
         });
+        // Handle CKeditors as well
+        if(window.CKEDITOR !== undefined) {
+            CKEDITOR.on("instanceReady", function(e) {
+                e.editor.setReadOnly(false);
+            });
+        }
+
     };
     
     // The user did not save in time, expire the page.
