@@ -20,6 +20,22 @@ def is_lockable(fn):
     def view(request, app, model, *vargs, **kwargs):
     	return fn(request, app, model, *vargs, **kwargs)
     return view
+       #  try:
+#             cls = ContentType.objects.get(app_label=app, model=model).model_class()
+#             if issubclass(cls, LockableModel):
+#                 lockable = True
+#             else:
+#                 lockable = False
+#         except ContentType.DoesNotExist:
+#             lockable = False
+# 
+#         if lockable:
+#             return fn(request, app, model, *vargs, **kwargs)
+#         else:
+#             
+#             return HttpResponse(status=200)
+#             #return HttpResponse(status=404)
+#     return view
 
 def log(view):
     def decorated_view(*vargs, **kwargs):

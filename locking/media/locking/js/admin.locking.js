@@ -278,3 +278,4 @@ try {
 // End wrap.
 })(jQuery, locking);
 })((typeof window.django != 'undefined') ? django.jQuery : jQuery);
+

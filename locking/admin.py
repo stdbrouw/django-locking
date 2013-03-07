@@ -103,3 +103,4 @@ class LockableAdmin(admin.ModelAdmin):
 
     get_lock_for_admin.allow_tags = True
     get_lock_for_admin.short_description = 'Lock'
+

@@ -14,7 +14,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
 class ObjectLockedError(IOError):
-    pass
+	pass
 
 class Lock(models.Model):
     """ LockableModel comes with three managers: ``objects``, ``locked`` and
@@ -204,3 +204,4 @@ class Lock(models.Model):
 
         super(Lock, self).save(*vargs, **kwargs)
         self._state.locking = False
+

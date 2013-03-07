@@ -5,7 +5,6 @@ from south.v2 import SchemaMigration
 from django.db import models
 
 class Migration(SchemaMigration):
-
     def forwards(self, orm):
         
         # Adding model 'Lock'
@@ -20,12 +19,10 @@ class Migration(SchemaMigration):
         ))
         db.send_create_signal('locking', ['Lock'])
 
-
     def backwards(self, orm):
         
         # Deleting model 'Lock'
         db.delete_table('locking_lock')
-
 
     models = {
         'auth.group': {
@@ -75,5 +72,4 @@ class Migration(SchemaMigration):
             'model': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True'})
         }
     }
-
     complete_apps = ['locking']
