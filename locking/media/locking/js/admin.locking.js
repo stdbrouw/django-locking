@@ -194,6 +194,14 @@ locking.admin = function() {
             });
         }
 
+        // Handle django-select2.  We really should add events to
+        // django-locking so other items can know when to enable/disable
+        if($.fn.select2 !== undefined) {
+            $('.django-select2').each(function() {
+                $(this).select2("enable");
+            });
+        }
+
     };
     
     // The user did not save in time, expire the page.
