@@ -14,7 +14,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from locking import LOCK_TIMEOUT, views
 from locking.models import Lock
-import locking.settings as _s
+from locking import settings as _s
 
 class LockableAdmin(admin.ModelAdmin):
 
