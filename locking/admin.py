@@ -2,7 +2,11 @@
 
 from datetime import datetime
 
-from django.contrib import admin
+try:
+    from custom_admin import admin
+except ImportError:
+    from django.contrib import admin
+
 from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext as _
 from django import forms
