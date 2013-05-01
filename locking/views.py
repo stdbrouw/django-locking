@@ -5,14 +5,14 @@ to prevent concurrent editing.
 import simplejson
 
 from django.http import HttpResponse
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 
 from locking.decorators import user_may_change_model, is_lockable, log
 from locking import LOCK_TIMEOUT
 from locking.utils import get_ct
 from locking.models import Lock, ObjectLockedError
-import locking.settings as _s
+
+from . import settings as locking_settings
 
 
 @log
@@ -96,9 +96,9 @@ def js_variables(request):
     response = "var locking = " + simplejson.dumps({
         'base_url': "/".join(request.path.split('/')[:-1]),
         'timeout': LOCK_TIMEOUT,
-        'time_until_expiration': settings.LOCKING['time_until_expiration'],
-        'time_until_warning': settings.LOCKING['time_until_warning'],
-        'admin_url': "/".join(_s.LOCKING_URL.split('/')[:-1]),
+        'time_until_expiration': locking_settings.TIME_UNTIL_EXPIRATION,
+        'time_until_warning': locking_settings.TIME_UNTIL_WARNING,
+        'admin_url': "/".join(locking_settings.LOCKING_URL.split('/')[:-1]),
     })
 
     return HttpResponse(response, mimetype='application/json')

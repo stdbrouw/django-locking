@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timedelta
 
 from django.db import models
-from django.conf import settings
 
 try:
     from account import models as auth
@@ -12,7 +11,7 @@ except:
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
-from . import managers
+from . import managers, settings as locking_settings
 
 
 logger = logging.getLogger('django.locker')
@@ -93,7 +92,7 @@ class Lock(models.Model):
         """
         if isinstance(self.locked_at, datetime):
             # tue -> time delta until expiration
-            _tue = timedelta(seconds=settings.LOCKING['time_until_expiration'])
+            _tue = timedelta(seconds=locking_settings.TIME_UNTIL_EXPIRATION)
             if (datetime.today() - self.locked_at) < _tue:
                 return True
             else:
@@ -113,7 +112,7 @@ class Lock(models.Model):
         If you want to extend a lock beyond its current expiry date, initiate
         a new lock using the ``lock_for`` method.
         """
-        _tue = timedelta(settings.LOCKING['time_until_expiration'])
+        _tue = timedelta(locking_settings.TIME_UNTIL_EXPIRATION)
         diff = _tue - (datetime.today() - self.locked_at)
         return (diff.days * 24 * 60 * 60) + diff.seconds
 
