@@ -1,20 +1,14 @@
-# encoding: utf-8
-
-from datetime import datetime
-
 try:
     from custom_admin import admin
 except ImportError:
     from django.contrib import admin
 
-from django.core.urlresolvers import reverse
 from django.utils.translation import ugettext as _
-from django import forms
 from django.contrib.contenttypes.models import ContentType
 
-from locking import LOCK_TIMEOUT, views
 from locking.models import Lock
 from locking import settings as _s
+
 
 class LockableAdmin(admin.ModelAdmin):
 
@@ -40,7 +34,6 @@ class LockableAdmin(admin.ModelAdmin):
                                                           extra_context)
 
     def save_model(self, request, obj, form, change, *args, **kwargs):
-        
         super(LockableAdmin, self).save_model(request, obj, form, change,
                                               *args, **kwargs)
         
@@ -53,7 +46,6 @@ class LockableAdmin(admin.ModelAdmin):
             obj.save()
         except:
             pass
-
 
     def get_lock_for_admin(self_obj, obj):
         ''' 
@@ -107,4 +99,3 @@ class LockableAdmin(admin.ModelAdmin):
 
     get_lock_for_admin.allow_tags = True
     get_lock_for_admin.short_description = 'Lock'
-

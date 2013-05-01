@@ -1,8 +1,6 @@
-# encoding: utf-8
-
-from django.db.models.loading import get_model
 from django.contrib.contenttypes.models import ContentType
 from locking.models import Lock
+
 
 def gather_lockable_models():
     lockable_models = dict()
@@ -17,6 +15,7 @@ def gather_lockable_models():
                 lockable_models[app][name] = model
     return lockable_models
 
+
 def get_ct(app, model):
     """
     Returns an instance of the model or None if it doesn't exist
@@ -25,6 +24,6 @@ def get_ct(app, model):
         ct = ContentType.objects.get(app_label=app, model=model)
         return ct
 
-    except ContentType.DoesNotExist, e:
+    except ContentType.DoesNotExist:
         return None
 

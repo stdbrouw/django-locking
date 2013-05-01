@@ -9,7 +9,9 @@ from locking import models, views, LOCK_TIMEOUT
 from locking.tests.utils import TestCase
 from locking.tests import models as testmodels
 
+
 class AppTestCase(TestCase):
+
     fixtures = ['locking_scenario',]
 
     def setUp(self):
@@ -125,7 +127,6 @@ class AppTestCase(TestCase):
     
     def test_gather_lockable_models(self):
         from locking import utils
-        from locking.tests import models
         lockable_models = utils.gather_lockable_models()
         self.assertTrue("story" in lockable_models["tests"])
         self.assertTrue("unlockable" not in lockable_models["tests"])
@@ -180,14 +181,23 @@ class AppTestCase(TestCase):
         self.assertEquals(unlocked.count(), 1)
         self.assertTrue(len(set(locked).intersection(set(unlocked))) == 0)
 
+
 users = [
     # Stan is a superuser
-    {"username": "Stan", "password": "green pastures"},
+    {
+        "username": "Stan",
+        "password": "green pastures"
+    },
     # Fred has pretty much no permissions whatsoever
-    {"username": "Fred", "password": "pastures of green"},
-    ]
-    
+    {
+        "username": "Fred",
+        "password": "pastures of green"
+    },
+]
+
+
 class BrowserTestCase(TestCase):
+
     fixtures = ['locking_scenario',]
     apps = ('locking.tests', 'django.contrib.auth', 'django.contrib.admin', )
     # REFACTOR: 

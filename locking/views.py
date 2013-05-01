@@ -1,20 +1,18 @@
-import simplejson
-
-from django.http import HttpResponse
-from django.conf import settings
-from django.core.urlresolvers import reverse
-from django.contrib.auth.decorators import login_required
-
-from locking.decorators import user_may_change_model, is_lockable, log
-from locking import utils, LOCK_TIMEOUT, logger
-from locking.utils import get_ct
-from locking.models import Lock, ObjectLockedError
-import locking.settings as _s
-
 """
 These views are called from javascript to open and close assets (objects), in order
 to prevent concurrent editing.
 """
+import simplejson
+
+from django.http import HttpResponse
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+
+from locking.decorators import user_may_change_model, is_lockable, log
+from locking import LOCK_TIMEOUT
+from locking.utils import get_ct
+from locking.models import Lock, ObjectLockedError
+import locking.settings as _s
 
 
 @log
@@ -43,6 +41,7 @@ def lock(request, app, model, id):
     obj.save()
     return HttpResponse(status=200)
 
+
 @log
 @user_may_change_model
 @is_lockable
@@ -64,14 +63,17 @@ def unlock(request, app, model, id):
     except:
         return HttpResponse(status=403)
 
+
 @log
 @user_may_change_model
 @is_lockable
 @login_required
 def is_locked(request, app, model, id):
-    data = {'is_active': False,
-            'applies': False,
-            'for_user': None}
+    data = {
+        'is_active': False,
+        'applies': False,
+        'for_user': None,
+    }
 
     ct = get_ct(app, model)
     if ct is None:
@@ -88,6 +90,7 @@ def is_locked(request, app, model, id):
     response = simplejson.dumps(data)
     return HttpResponse(response, mimetype='application/json')
 
+
 @log
 def js_variables(request):
     response = "var locking = " + simplejson.dumps({
@@ -99,4 +102,3 @@ def js_variables(request):
     })
 
     return HttpResponse(response, mimetype='application/json')
-

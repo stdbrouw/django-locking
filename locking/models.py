@@ -1,34 +1,42 @@
-# encoding: utf-8
-
+import logging
 from datetime import datetime, timedelta
 
 from django.db import models
 from django.conf import settings
+
 try:
     from account import models as auth
 except:
     from django.contrib.auth import models as auth
-from locking import logger
-import managers
+
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
+from . import managers
+
+
+logger = logging.getLogger('django.locker')
+
+
 class ObjectLockedError(IOError):
-	pass
+    pass
+
 
 class Lock(models.Model):
-    """ LockableModel comes with three managers: ``objects``, ``locked`` and
-    ``unlocked``. They do what you'd expect them to. """
+    """
+    LockableModel comes with three managers: ``objects``, ``locked`` and
+    ``unlocked``. They do what you'd expect them to.
+    """
+
+    def __init__(self, *vargs, **kwargs):
+        super(Lock, self).__init__(*vargs, **kwargs)
+        self._state.locking = False
 
     objects = managers.Manager()
 
     locked = managers.LockedManager()
 
     unlocked = managers.UnlockedManager()
-
-    def __init__(self, *vargs, **kwargs):
-        super(Lock, self).__init__(*vargs, **kwargs)
-        self._state.locking = False
 
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
@@ -140,7 +148,6 @@ class Lock(models.Model):
             self._locked_at = datetime.today()
             self._locked_by = user
             self._hard_lock = self.__init_hard_lock = hard_lock
-            date = self.locked_at.strftime("%H:%M:%S")
             # an administrative toggle, to make it easier for devs to extend `django-locking`
             # and react to locking and unlocking
             self._state.locking = True
@@ -201,7 +208,5 @@ class Lock(models.Model):
         return user == self.locked_by
 
     def save(self, *vargs, **kwargs):
-
         super(Lock, self).save(*vargs, **kwargs)
         self._state.locking = False
-

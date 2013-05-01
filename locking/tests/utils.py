@@ -1,11 +1,11 @@
-# encoding: utf-8
-
 from django.conf import settings
 from django.core.management import call_command
 from django.db.models import loading
 from django import test
 
+
 class TestCase(test.TestCase):
+
     apps = ()
 
     def _pre_setup(self):
