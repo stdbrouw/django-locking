@@ -2,103 +2,90 @@
 These views are called from javascript to open and close assets (objects), in order
 to prevent concurrent editing.
 """
-import simplejson
+import json
+import textwrap
 
+from django.core.urlresolvers import reverse
 from django.http import HttpResponse
-from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 
-from locking.decorators import user_may_change_model, is_lockable, log
-from locking import LOCK_TIMEOUT
-from locking.utils import get_ct
-from locking.models import Lock, ObjectLockedError
-
+from .utils import timedelta_to_seconds
+from .models import Lock, ObjectLockedError
 from . import settings as locking_settings
 
 
-@log
-@user_may_change_model
-@is_lockable
-@login_required
-def lock(request, app, model, id):
-    # TODO: What do we do if the model doesn't exist?  Edge case
-    # for later
-    ct = get_ct(app, model)
-    if ct is None:
-        return HttpResponse(status=404)
+json_encode = json.JSONEncoder(indent=4).encode
 
+
+def lock(model_admin, request, object_id, extra_context=None):
+    ct = ContentType.objects.get_for_model(model_admin.model)
     try:
-        obj = Lock.objects.get(content_type=ct, object_id=id)
+        lock = Lock.objects.get(content_type=ct, object_id=object_id)
     except Lock.DoesNotExist:
-        obj = Lock(content_type=ct, object_id=id)
-    
+        lock = Lock(content_type=ct, object_id=object_id)
+
     try:
-        obj.lock_for(request.user)
+        lock.lock_for(request.user)
     except ObjectLockedError:
-        # The user tried to overwrite an existing lock by another user.
-        # No can do, pal!
         return HttpResponse(status=403)
-
-    obj.save()
-    return HttpResponse(status=200)
-
-
-@log
-@user_may_change_model
-@is_lockable
-@login_required
-def unlock(request, app, model, id):
-    # Users who don't have exclusive access to an object anymore may still
-    # request we unlock an object. This happens e.g. when a user navigates
-    # away from an edit screen that's been open for very long.
-    # When this happens, LockableModel.unlock_for will throw an exception, 
-    # and we just ignore the request.
-    # That way, any new lock that may since have been put in place by another 
-    # user won't get accidentally overwritten.
-    try:
-        ct = get_ct(app, model)
-        lock = Lock.objects.get(content_type=ct, object_id=id)
-        lock.delete()
-
+    else:
+        lock.save()
         return HttpResponse(status=200)
-    except:
-        return HttpResponse(status=403)
 
 
-@log
-@user_may_change_model
-@is_lockable
-@login_required
-def is_locked(request, app, model, id):
+def unlock(model_admin, request, object_id, extra_context=None):
+    ct = ContentType.objects.get_for_model(model_admin.model)
+    try:
+        lock = Lock.objects.get(content_type=ct, object_id=object_id)
+    except Lock.DoesNotExist:
+        return HttpResponse(status=404)
+    else:
+        lock.delete()
+        return HttpResponse(status=200)
+
+
+def lock_status(model_admin, request, object_id, extra_context=None):
     data = {
         'is_active': False,
         'applies': False,
         'for_user': None,
     }
-
-    ct = get_ct(app, model)
-    if ct is None:
-        return HttpResponse(status=404)
+    ct = ContentType.objects.get_for_model(model_admin.model)
     try:
-        obj = Lock.objects.get(content_type=ct, object_id=id)
+        lock = Lock.objects.get(content_type=ct, object_id=object_id)
     except Lock.DoesNotExist:
         pass
     else:
-        data['is_active']  = obj.is_locked
-        data['for_user']  = getattr(obj.locked_by, 'username', None)
-        data['applies']  = obj.lock_applies_to(request.user)
+        data.update({
+            'is_active': lock.is_locked,
+            'for_user': getattr(lock.locked_by, 'username', None),
+            'applies': lock.lock_applies_to(request.user),
+        })
+    return HttpResponse(json_encode(data), mimetype='application/json')
 
-    response = simplejson.dumps(data)
-    return HttpResponse(response, mimetype='application/json')
 
+def locking_js(model_admin, request, object_id, extra_context=None):
+    opts = model_admin.model._meta
+    info = (opts.app_label, opts.module_name)
 
-@log
-def js_variables(request):
-    response = "var locking = " + simplejson.dumps({
-        'base_url': "/".join(request.path.split('/')[:-1]),
-        'timeout': LOCK_TIMEOUT,
-        'time_until_expiration': locking_settings.TIME_UNTIL_EXPIRATION,
-        'time_until_warning': locking_settings.TIME_UNTIL_WARNING,
-        'admin_url': "/".join(locking_settings.LOCKING_URL.split('/')[:-1]),
-    })
+    locking_urls = {
+        "lock": reverse("admin:%s_%s_lock" % info, args=[object_id]),
+        "unlock": reverse("admin:%s_%s_unlock" % info, args=[object_id]),
+        "lock_status": reverse("admin:%s_%s_lock_status" % info,
+            args=[object_id]),
+    }
 
-    return HttpResponse(response, mimetype='application/json')
+    js_vars = {
+        'urls': locking_urls,
+        'time_until_expiration': timedelta_to_seconds(
+                locking_settings.TIME_UNTIL_EXPIRATION),
+        'time_until_warning': timedelta_to_seconds(
+                locking_settings.TIME_UNTIL_WARNING),
+    }
+
+    response_js = textwrap.dedent("""
+        var DJANGO_LOCKING = (typeof window.DJANGO_LOCKING != 'undefined')
+                           ? DJANGO_LOCKING : {{}};
+        DJANGO_LOCKING.config = {config_data}
+    """).strip().format(config_data=json_encode(js_vars))
+    return HttpResponse(response_js, mimetype='application/x-javascript')

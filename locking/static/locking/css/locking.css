@@ -8,3 +8,18 @@
 	width: 510px;
     margin-top: 10px;
 }
+
+a.locking-status {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+a.locking-status.locking-locked {
+    background: transparent url(../img/lock.png) no-repeat 0 0;
+}
+
+a.locking-status.locking-edit {
+    background: transparent url(../img/page_edit.png) no-repeat 0 0;
+    cursor: default;
+}

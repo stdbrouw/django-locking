@@ -14,7 +14,7 @@ class Migration(SchemaMigration):
             ('app', self.gf('django.db.models.fields.CharField')(max_length=255, null=True)),
             ('model', self.gf('django.db.models.fields.CharField')(max_length=255, null=True)),
             ('entry_id', self.gf('django.db.models.fields.PositiveIntegerField')(db_index=True)),
-            ('_locked_by', self.gf('django.db.models.fields.related.ForeignKey')(related_name='working_on_lock', null=True, db_column='locked_by', to=orm['auth.User'])),
+            ('_locked_by', self.gf('django.db.models.fields.related.ForeignKey')(related_name='working_on_locking_lock', null=True, db_column='locked_by', to=orm['auth.User'])),
             ('_hard_lock', self.gf('django.db.models.fields.BooleanField')(default=False, db_column='hard_lock', blank=True)),
         ))
         db.send_create_signal('locking', ['Lock'])
@@ -65,7 +65,7 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'Lock'},
             '_hard_lock': ('django.db.models.fields.BooleanField', [], {'default': 'False', 'db_column': "'hard_lock'", 'blank': 'True'}),
             '_locked_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'db_column': "'locked_at'"}),
-            '_locked_by': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'working_on_lock'", 'null': 'True', 'db_column': "'locked_by'", 'to': "orm['auth.User']"}),
+            '_locked_by': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'working_on_locking_lock'", 'null': 'True', 'db_column': "'locked_by'", 'to': "orm['auth.User']"}),
             'app': ('django.db.models.fields.CharField', [], {'max_length': '255', 'null': 'True'}),
             'entry_id': ('django.db.models.fields.PositiveIntegerField', [], {'db_index': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),

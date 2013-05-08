@@ -5,95 +5,91 @@ Only works on change-form pages, not for inline edits in the list view.
 */
 
 // Set the namespace.
-var locking = locking || {};
+var DJANGO_LOCKING = DJANGO_LOCKING || {};
 
 // Make sure jQuery is available.
-(function(jQuery) {
+(function($) {
 
+    // Global error function that redirects to the frontpage if something bad
+    // happens.
+    DJANGO_LOCKING.error = function() {
+        return;
+        var text = ('An unexpected locking error occured. You will be' +
+            ' forwarded to a safe place. Sorry!'
+        );
+        // Catch if gettext has not been included.
+        try {
+            alert(gettext(text));
+        } catch(err) {
+            alert(text);
+        }
+        window.location = '/';
+    };
 
-// Begin wrap.
-(function($, locking) {
+    var getUrl = function(action, id) {
+        if (action != 'lock' && action != 'unlock' && action != 'lock_status') {
+            return null;
+        }
+        var baseUrl = DJANGO_LOCKING.config.urls[action];
+        if (typeof baseUrl == 'undefined') {
+            return null;
+        }
+        var regex = new RegExp("\/0\/" + action + "\/$");
+        return baseUrl.replace(regex, "/" + id + "/" + action + "/");
+    };
 
-// Global error function that redirects to the frontpage if something bad
-// happens.
-locking.error = function() {
-    return;
-    var text = ('An unexpected locking error occured. You will be' +
-        ' forwarded to a safe place. Sorry!'
-    );
-    // Catch if gettext has not been included.
-    try {
-        alert(gettext(text));
-    } catch(err) {
-        alert(text);
-    }
-    window.location = '/';
-};
-
-    function unlock_click_event(base_url){
+    function unlock_click_event(){
         //Locking toggle function
-        $("a.lock-status").click(function(){
-            console.log('this', $(this).attr('title'))
-            user = $.trim($(this).text());
-            id = $(this).attr('id');
-            if ($(this).hasClass("locked")){
-                if (confirm("User '" + user + "' is currently editing this " + 
+        $("a.locking-status").click(function(e) {
+            e.preventDefault();
+            if (!$this.hasClass('locking-locked')) {
+                return;
+            }
+            var $this = $(this);
+            var user = $this.attr('data-locked-by');
+            var lockId = $this.attr('data-lock-id');
+            var unlockUrl = getUrl("unlock", lockId);
+            if (unlockUrl) {
+                if (confirm("User '" + user + "' is currently editing this " +
                             "content. Proceed with removing the lock?")) {
-                    $.ajax({'url': base_url + id + "/unlock/", 'async': false});
-                    $(this).hide();
-                    //$(this).toggleClass('unlocked');
+                    $.ajax({
+                        url: unlockUrl,
+                        async: false,
+                        success: function() {
+                            $this.hide();
+                        }
+                    });
                 }
             }
-            return false;
         });
     }
 
     // Handles locking on the contrib.admin edit page.
-    locking.admin = function() {
-        // Needs a try/catch here as well because exceptions does not propagate 
-        // outside the onready call.
-        settings = locking;
-        // Get url parts.
-        var adm_url = settings.admin_url;
-        var pathname = window.location.pathname;
-        if (pathname.indexOf(adm_url) == 0 && adm_url.length > 0) {
-            var app = $.url.segment(1);
-            var model = $.url.segment(2);
-            var id = $.url.segment(3);
-        } else {
-            var app = $.url.segment(0);
-            var model = $.url.segment(1);
-            var id = $.url.segment(2);
-        }
-        var base_url = settings.base_url + "/" + [app, model, id].join("/");
-        unlock_click_event(base_url);
+    DJANGO_LOCKING.admin = function() {
+        unlock_click_event();
         
         // Don't lock page if not on change-form page.
         if (!($("body").hasClass("change-form"))) return;
 
-        var is_adding_content = function() {
-            return (id === 'add' || // On a standard add page.
-                    // On a add page handled by the ajax_select app.
-                    $.url.segment(0) === 'ajax_select')
-        };
-        // Don't apply locking when adding content.
-        if (is_adding_content()) return;
-        
-        
-        // Urls.
-        var base_url = settings.base_url + "/" + [app, model, id].join("/");
-        var urls = {
-            is_locked: base_url + "/is_locked/",
-            lock: base_url + "/lock/",
-            unlock: base_url + "/unlock/"
-        };
+        if (typeof DJANGO_LOCKING.config != 'object') {
+            return;
+        }
+        var urls = DJANGO_LOCKING.config.urls;
+
+        if (typeof urls != 'object' || !urls['lock']) {
+            return;
+        }
+        if (urls['lock'].match(/\/0\/lock\/$/)) {
+            return;
+        }
+
         // Texts.
         var text = {
             warn: gettext('Your lock on this page expires in less than %s' +
                 ' minutes. Press save or <a href=".">reload the page</a>.'),
-            is_locked: gettext('This page is locked by <em>%(for_user)s' + 
+            is_locked: gettext('This page is locked by <em>%(for_user)s' +
                 '</em> and editing is disabled.'),
-            has_expired: gettext('Your lock on this page is expired!' + 
+            has_expired: gettext('Your lock on this page is expired!' +
                 ' If you save now, your attempts may be thwarted due to another lock,' +
                 ' or even worse, you may have stale data.'
             ),
@@ -102,7 +98,7 @@ locking.error = function() {
         
         // Creates empty div in top of page.
         var create_notification_area = function() {
-            $("#content-main,#content-inner").prepend(
+            $("#content").prepend(
                 '<div id="locking_notification"></div>');
         };
         
@@ -114,21 +110,7 @@ locking.error = function() {
                                       .fadeIn('slow', func);
         };
         
-        // Displays a warning that the page is about to expire.
-        var display_warning = function() {
-            var promt_to_save = function() {
-                if (confirm(text.prompt_to_save)) {
-                    $('form input[type=submit][name=_continue]').click();
-                }
-            }
-            var minutes = Math.round((settings.time_until_expiration - 
-                settings.time_until_warning) / 60);
-            if (minutes < 1) minutes = 1;
-            update_notification_area(interpolate(text.warn, [minutes]), 
-                                     promt_to_save);
-        };
-        
-        // Displays notice on top of page that the page is locked by someone 
+        // Displays notice on top of page that the page is locked by someone
         // else.
         var display_islocked = function(data) {
             update_notification_area(interpolate(text.is_locked, data, true));
@@ -149,9 +131,16 @@ locking.error = function() {
             // Handle CKeditors as well, which is a little annoying since there
             // is an inherent race condition with it.
             if(window.CKEDITOR !== undefined) {
-                CKEDITOR.on("instanceReady", function(e) {
-                    e.editor.setReadOnly(true);
-                });
+                if (CKEDITOR.status != 'basic_ready' && CKEDITOR.status != 'loaded') {
+                    CKEDITOR.on("instanceReady", function(e) {
+                        e.editor.setReadOnly(true);
+                    });
+                } else {
+                    for (var instanceId in CKEDITOR.instances) {
+                        var instance = CKEDITOR.instances[instanceId];
+                        instance.setReadOnly(true);
+                    }
+                }
             }
         };
         
@@ -163,9 +152,16 @@ locking.error = function() {
             });
             // Handle CKeditors as well
             if(window.CKEDITOR !== undefined) {
-                CKEDITOR.on("instanceReady", function(e) {
-                    e.editor.setReadOnly(false);
-                });
+                if (CKEDITOR.status != 'basic_ready' && CKEDITOR.status != 'loaded') {
+                    CKEDITOR.on("instanceReady", function(e) {
+                        e.editor.setReadOnly(false);
+                    });
+                } else {
+                    for (var instanceId in CKEDITOR.instances) {
+                        var instance = CKEDITOR.instances[instanceId];
+                        instance.setReadOnly(false);
+                    }
+                }
             }
 
             // Handle django-select2.  We really should add events to
@@ -185,16 +181,19 @@ locking.error = function() {
 
 
         var lock_renewer; // This needs to live in higher state so other functions can clear it.
-        var setup_locked_page = function(){
+        var setup_locked_page = function() {
 
             // Keep locked
             lock_renewer = setInterval(refresh_lock, 30000);
             
             // Disable lock when you leave
             $(window).unload(function() {
-                // We have to assure that our unlock request actually 
-                // gets through before the user leaves the page, so it 
+                // We have to assure that our unlock request actually
+                // gets through before the user leaves the page, so it
                 // shouldn't run asynchronously.
+                if (!urls.unlock) {
+                    return;
+                }
                 $.ajax({
                     url: urls.unlock,
                     async: false,
@@ -207,6 +206,9 @@ locking.error = function() {
         // Request a lock on the page, and unlocks page when the user leaves.
         // Adds delayed execution of user notifications.
         var lock_page = function() {
+            if (!urls.lock) {
+                return;
+            }
             $.ajax({
                 url: urls.lock,
                 cache: false,
@@ -217,23 +219,26 @@ locking.error = function() {
                         enable_form();
                         setup_locked_page();
                     } else {
-                        locking.error();
+                        DJANGO_LOCKING.error();
                     }
                 }
             });
         };
 
         var refresh_lock = function(){
-            $.getJSON(urls.is_locked, function(resp){
+            if (!urls.lock_status) {
+                return;
+            }
+            $.getJSON(urls.lock_status, function(resp){
                 if (resp.for_user === DJANGO_GLOBALS.username) {
                     $.get(urls.lock);
-                    console.log('Rewened');
+                    console.log('Renewed');
                 } else {
                     var msg; // If possible, we should let the user know who's competing for the lock.
                     if(resp.for_user || false) {
                         msg = resp.for_user + " removed your lock on this story.";
                     } else {
-                        msg = "You lost your lock on this story. Save your work."
+                        msg = "You lost your lock on this story. Save your work.";
                     }
                     alert(msg); // This should be obnoxious and grab focus.
                     expire_page();
@@ -254,10 +259,13 @@ locking.error = function() {
         
         // Polls server for the page lock status.
         var request_locking_info = function() {
+            if (!urls.lock_status) {
+                return;
+            }
             $.ajax({
-                url: urls.is_locked,
+                url: urls.lock_status,
                 success: parse_succesful_request,
-                error: locking.error,
+                error: DJANGO_LOCKING.error,
                 cache: false
             });
         };
@@ -271,12 +279,11 @@ locking.error = function() {
 
     // Catches any error and redirects to a safe place if any.
     try {
-        $(locking.admin);
+        $(DJANGO_LOCKING.admin);
     } catch(err) {
-        locking.error();
+        DJANGO_LOCKING.error();
     }
 
-// End wrap.
-})(jQuery, locking);
-})((typeof window.django != 'undefined') ? django.jQuery : jQuery);
-
+})((typeof grp == 'object' && grp.jQuery)
+        ? grp.jQuery
+        : (typeof django == 'object' && django.jQuery) ? django.jQuery : jQuery);

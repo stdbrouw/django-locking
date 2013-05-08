@@ -1,7 +1,2 @@
-VERSION = (0, 3, 0)
-
-from django.conf import settings
-import urls
-
-#TODO: LOCK_TIMEOUT isn't being used anymore, clean it up throughout the code
-LOCK_TIMEOUT = getattr(settings, 'LOCK_TIMEOUT', 1800)
+__version_info__ = (2, 0, 0)
+VERSION = __version__ = '.'.join(map(str, __version_info__))

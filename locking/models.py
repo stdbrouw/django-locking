@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.db import models
 
@@ -12,6 +12,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 
 from . import managers, settings as locking_settings
+from .utils import timedelta_to_seconds
 
 
 logger = logging.getLogger('django.locker')
@@ -19,6 +20,32 @@ logger = logging.getLogger('django.locker')
 
 class ObjectLockedError(IOError):
     pass
+
+
+class LockingManager(models.Manager):
+
+    def get_lock_for_object(self, obj, filters=None):
+        if not isinstance(obj, models.Model):
+            raise TypeError((
+                "%(fn)s() argument 1 must be %(expected_type)s, not "
+                "%(actual_type)s") % {
+                    'fn': 'get_lock_for_object',
+                    'expected_type': "django.db.models.Model",
+                    'actual_type': type(obj).__name__,})
+        if not getattr(obj._meta, 'pk', None):
+            raise Exception((
+                u"Cannot get lock for instance %(instance)s; model "
+                u"%(app_label)s.%(object_name)s has no primary key field") % {
+                    'instance': unicode(obj),
+                    'app_label': obj._meta.app_label,
+                    'object_name': obj._meta.object_name,})
+        filter_kwargs = {
+            'content_type': ContentType.objects.get_for_model(obj.__class__),
+            'object_id': obj.pk,
+        }
+        if filters:
+            filter_kwargs.update(filters)
+        return self.get(**filter_kwargs)
 
 
 class Lock(models.Model):
@@ -31,7 +58,7 @@ class Lock(models.Model):
         super(Lock, self).__init__(*vargs, **kwargs)
         self._state.locking = False
 
-    objects = managers.Manager()
+    objects = LockingManager()
 
     locked = managers.LockedManager()
 
@@ -48,7 +75,7 @@ class Lock(models.Model):
 
     _locked_by = models.ForeignKey(auth.User,
         db_column='locked_by',
-        related_name="working_on_%(class)s",
+        related_name="working_on_%(app_label)s_%(class)s",
         null=True,
         editable=False)
 
@@ -67,7 +94,7 @@ class Lock(models.Model):
     @property
     def locked_by(self):
         """``locked_by`` is a foreign key to ``auth.User``.
-        The ``related_name`` on the User object is ``working_on_%(class)s``.
+        The ``related_name`` on the User object is ``working_on_%(app_label)s_%(class)s``.
         Read-only."""
         return self._locked_by
 
@@ -90,14 +117,19 @@ class Lock(models.Model):
         Works by calculating if the last lock (self.locked_at) has timed out
         or not.
         """
-        if isinstance(self.locked_at, datetime):
-            # tue -> time delta until expiration
-            _tue = timedelta(seconds=locking_settings.TIME_UNTIL_EXPIRATION)
-            if (datetime.today() - self.locked_at) < _tue:
-                return True
-            else:
-                return False
-        return False
+        if not isinstance(self.locked_at, datetime):
+            return False
+        return datetime.now() < self.lock_expiration_time
+
+
+    @property
+    def lock_expiration_time(self):
+        """
+        The time when the lock will have expired, as a datetime object
+        """
+        if not isinstance(self.locked_at, datetime):
+            return None
+        return self.locked_at + locking_settings.TIME_UNTIL_EXPIRATION
 
     @property
     def lock_seconds_remaining(self):
@@ -112,9 +144,14 @@ class Lock(models.Model):
         If you want to extend a lock beyond its current expiry date, initiate
         a new lock using the ``lock_for`` method.
         """
-        _tue = timedelta(locking_settings.TIME_UNTIL_EXPIRATION)
-        diff = _tue - (datetime.today() - self.locked_at)
-        return (diff.days * 24 * 60 * 60) + diff.seconds
+        if not self.locked_at:
+            return 0
+        locked_delta = datetime.now() - self.locked_at
+        # If the lock has already expired, there are 0 seconds remaining
+        if locking_settings.TIME_UNTIL_EXPIRATION < locked_delta:
+            return 0
+        until = locking_settings.TIME_UNTIL_EXPIRATION - locked_delta
+        return timedelta_to_seconds(until)
 
     def lock_for(self, user, hard_lock=True):
         """

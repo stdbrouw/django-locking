@@ -1,13 +1,16 @@
 from datetime import datetime, timedelta
-import simplejson
+import json
 
 from django.core.urlresolvers import reverse
 from django.test.client import Client
 from django.contrib.auth.models import User
 
-from locking import models, views, LOCK_TIMEOUT
+from locking import models, views, settings as locking_settings
 from locking.tests.utils import TestCase
 from locking.tests import models as testmodels
+
+
+json_decode = json.JSONDecoder().decode
 
 
 class AppTestCase(TestCase):
@@ -71,7 +74,7 @@ class AppTestCase(TestCase):
     def test_lock_expiration(self):
         self.story.lock_for(self.user)
         self.assertTrue(self.story.is_locked)
-        self.story._locked_at = datetime.today() - timedelta(minutes=LOCK_TIMEOUT+1)
+        self.story._locked_at = datetime.today() - timedelta(minutes=locking_settings.LOCK_TIMEOUT+1)
         self.assertFalse(self.story.is_locked)
 
     def test_lock_expiration_day(self):
@@ -82,7 +85,7 @@ class AppTestCase(TestCase):
 
     def test_lock_seconds_remaining(self):
         self.story.lock_for(self.user)
-        expected = LOCK_TIMEOUT
+        expected = locking_settings.LOCK_TIMEOUT
         self.assertTrue(self.story.lock_seconds_remaining <= expected + 1 and
                         self.story.lock_seconds_remaining >= expected - 1,
                         "%d not close to %d" % (
@@ -90,8 +93,8 @@ class AppTestCase(TestCase):
 
     def test_lock_seconds_remaining_half_timeout(self):
         self.story.lock_for(self.user)
-        self.story._locked_at -= timedelta(seconds=(LOCK_TIMEOUT / 2))
-        expected = LOCK_TIMEOUT / 2
+        self.story._locked_at -= timedelta(seconds=(locking_settings.LOCK_TIMEOUT / 2))
+        expected = locking_settings.LOCK_TIMEOUT / 2
         self.assertTrue(self.story.lock_seconds_remaining <= expected + 1 and
                         self.story.lock_seconds_remaining >= expected - 1,
                         "%d not close to %d" % (
@@ -100,7 +103,7 @@ class AppTestCase(TestCase):
     def test_lock_seconds_remaining_day(self):
         self.story.lock_for(self.user)
         self.story._locked_at -= timedelta(days=1)
-        expected = LOCK_TIMEOUT - (24 * 60 * 60)
+        expected = locking_settings.LOCK_TIMEOUT - (24 * 60 * 60)
         self.assertTrue(self.story.lock_seconds_remaining <= expected + 1 and
                         self.story.lock_seconds_remaining >= expected - 1,
                         "%d not close to %d" % (
@@ -124,12 +127,6 @@ class AppTestCase(TestCase):
         # this might seem like a silly test, but an object
         # should be unlocked unless it has actually been locked
         self.assertFalse(self.story.is_locked)
-    
-    def test_gather_lockable_models(self):
-        from locking import utils
-        lockable_models = utils.gather_lockable_models()
-        self.assertTrue("story" in lockable_models["tests"])
-        self.assertTrue("unlockable" not in lockable_models["tests"])
 
     def test_locking_bit_when_locking(self):
         # when we've locked something, we should set an administrative
@@ -211,17 +208,17 @@ class BrowserTestCase(TestCase):
         # client setup
         self.c = Client()
         self.c.login(**users[0])
-        story_args = [story._meta.app_label, story._meta.module_name, story.pk]
         # refactor: http://docs.djangoproject.com/en/dev/topics/testing/#urlconf-configuration
         # is probably a smarter way to go about this
+        info = ('tests', 'story')
         self.urls = {
-            "change": reverse('admin:tests_story_change', args=[story.pk]),
-            "changelist": reverse('admin:tests_story_changelist'),
-            "lock": reverse(views.lock, args=story_args),
-            "unlock": reverse(views.unlock, args=story_args),
-            "is_locked": reverse(views.is_locked, args=story_args),
-            "js_variables": reverse(views.js_variables),
-            }
+            "change": reverse('admin:%s_%s_change' % info, args=[story.pk]),
+            "changelist": reverse('admin:%s_%s_changelist' % info),
+            "lock": reverse('admin:%s_%s_lock' % info, args=[story.pk]),
+            "unlock": reverse('admin:%s_%s_unlock' % info, args=[story.pk]),
+            "is_locked": reverse('admin:%s_%s_lock_status' % info, args=[story.pk]),
+            "is_locked": reverse('admin:%s_%s_lock_js' % info, args=[story.pk]),
+        }
     
     def tearDown(self):
         pass
@@ -285,7 +282,7 @@ class BrowserTestCase(TestCase):
         self.story.lock_for(self.alt_user)
         self.story.save()
         res = self.c.get(self.urls['is_locked'])
-        res = simplejson.loads(res.content)
+        res = json_decode(res.content)
         self.assertTrue(res['applies'])
         self.assertTrue(res['is_active'])
     
@@ -293,14 +290,14 @@ class BrowserTestCase(TestCase):
         self.story.lock_for(self.user)
         self.story.save()
         res = self.c.get(self.urls['is_locked'])
-        res = simplejson.loads(res.content)
+        res = json_decode(res.content)
         self.assertFalse(res['applies'])
         self.assertTrue(res['is_active'])
 
     def test_js_variables(self):
         res = self.c.get(self.urls['js_variables'])
         self.assertEquals(res.status_code, 200)
-        self.assertContains(res, LOCK_TIMEOUT)
+        self.assertContains(res, locking_settings.LOCK_TIMEOUT)
     
     def test_admin_media(self):
         res = self.c.get(self.urls['change'])
