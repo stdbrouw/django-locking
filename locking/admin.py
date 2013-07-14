@@ -56,7 +56,8 @@ class LockableAdminMixin(object):
         The url names appended are:
 
             admin:%(app_label)s_%(object_name)s_lock
-            admin:%(app_label)s_%(object_name)s_unlock
+            admin:%(app_label)s_%(object_name)s_lock_clear
+            admin:%(app_label)s_%(object_name)s_lock_remove
             admin:%(app_label)s_%(object_name)s_lock_status
             admin:%(app_label)s_%(object_name)s_lock_js
         """
@@ -75,15 +76,18 @@ class LockableAdminMixin(object):
         info = (opts.app_label, opts.module_name)
 
         urlpatterns = patterns('',
-            url(r'^(.+)/locking_variables\.js',
+            url(r'^(.+)/locking_variables\.js$',
                 wrap(locking_views.locking_js),
                 name="%s_%s_lock_js" % info),
             url(r'^(.+)/lock/$',
                 wrap(locking_views.lock),
                 name="%s_%s_lock" % info),
-            url(r'^(.+)/unlock/$',
-                wrap(locking_views.unlock),
-                name="%s_%s_unlock" % info),
+            url(r'^(.+)/lock_clear/$',
+                wrap(locking_views.lock_clear),
+                name="%s_%s_lock_clear" % info),
+            url(r'^(.+)/lock_remove/$',
+                wrap(locking_views.lock_remove),
+                name="%s_%s_lock_remove" % info),
             url(r'^(.+)/lock_status/$',
                 wrap(locking_views.lock_status),
                 name="%s_%s_lock_status" % info))
@@ -97,7 +101,7 @@ class LockableAdminMixin(object):
             if media:
                 # This is our hacky string-replacement, described more fully
                 # in the comments for the `media` @property
-                media = re.sub(r'/0/(locking_variables\.js)', r'/%d/\1' % obj_pk, media)
+                media = re.sub(r'/0/(locking_variables\.js)', r'/%d/\1' % obj_pk, unicode(media))
                 context['media'] = mark_safe(media)
         return super(LockableAdminMixin, self).render_change_form(
                 request, context, add=add, obj=obj, **kwargs)
@@ -175,24 +179,31 @@ class LockableAdminMixin(object):
 
         until = timeuntil(lock.lock_expiration_time)
 
-        locked_by_fullname = lock.locked_by.get_full_name()
+        locked_by_name = lock.locked_by.get_full_name()
+        if locked_by_name:
+            locked_by_name = u"%(username)s (%(fullname)s)" % {
+                'username': lock.locked_by.username,
+                'fullname': locked_by_name,
+            }
+        else:
+            locked_by_name = lock.locked_by.username
 
         if lock.locked_by.pk == current_user_id:
             msg = _(u"You own this lock for %s longer") %  until
             css_class = 'locking-edit'
         else:
-            msg = _(u"Locked by %s for %s longer") % (until, locked_by_fullname)
+            msg = _(u"Locked by %s for %s longer") % (until, locked_by_name)
             css_class = 'locking-locked'
 
         return (
             u'  <a href="#" title="%(msg)s"'
-            u'     data-lock-id="%(lock_id)s"'
-            u'     data-locked-by="%(fullname)s"'
+            u'     data-locked-obj-id="%(locked_obj_id)s"'
+            u'     data-locked-by="%(locked_by_name)s"'
             u'     class="locking-status %(css_class)s"></a>'
         ) % {
             'msg': html_utils.escape(msg),
-            'lock_id': lock.pk,
-            'fullname': html_utils.escape(locked_by_fullname),
+            'locked_obj_id': obj.pk,
+            'locked_by_name': html_utils.escape(locked_by_name),
             'css_class': css_class,}
 
     get_lock_for_admin.allow_tags = True

@@ -10,279 +10,315 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
 // Make sure jQuery is available.
 (function($) {
 
-    // Global error function that redirects to the frontpage if something bad
-    // happens.
+    if (typeof $.fn.hasClasses === 'undefined') {
+        var re_classNameWhitespace = /[\n\t\r ]+/g;
+
+        $.fn.hasClasses = function(classes) {
+            if (!classes || typeof(classes) != 'object' || !classes.length) {
+                return false;
+            }
+            var i,
+                l = this.length,
+                classNameRegex = new RegExp("( " + classes.join(" | ") + " )");
+            for (i = 0; i < l; i++) {
+                if (this[i].nodeType !== 1) {
+                    continue;
+                }
+                var testStr = (" " + this[i].className + " ").replace(re_classNameWhitespace, " ");
+                if (classNameRegex.test(testStr)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+    }
+
+    if (typeof $.fn.bindFirst === 'undefined') {
+        $.fn.bindFirst = function(name, fn) {
+            // bind as you normally would
+            // don't want to miss out on any jQuery magic
+            this.on(name, fn);
+
+            // Thanks to a comment by @Martin, adding support for
+            // namespaced events too.
+            this.each(function() {
+                var handlers = $._data(this, 'events')[name.split('.')[0]];
+                // take out the handler we just inserted from the end
+                var handler = handlers.pop();
+                // move it at the beginning
+                handlers.splice(0, 0, handler);
+            });
+        };
+    }
+
+    // We're currently not doing anything here...
     DJANGO_LOCKING.error = function() {
         return;
-        var text = ('An unexpected locking error occured. You will be' +
-            ' forwarded to a safe place. Sorry!'
-        );
-        // Catch if gettext has not been included.
-        try {
-            alert(gettext(text));
-        } catch(err) {
-            alert(text);
-        }
-        window.location = '/';
     };
 
-    var getUrl = function(action, id) {
-        if (action != 'lock' && action != 'unlock' && action != 'lock_status') {
-            return null;
-        }
-        var baseUrl = DJANGO_LOCKING.config.urls[action];
-        if (typeof baseUrl == 'undefined') {
-            return null;
-        }
-        var regex = new RegExp("\/0\/" + action + "\/$");
-        return baseUrl.replace(regex, "/" + id + "/" + action + "/");
-    };
+    var LockManager = function(notificationElement) {
+        this.$notificationElement = $(notificationElement);
+        this.config = DJANGO_LOCKING.config || {};
+        this.urls = this.config.urls || {};
 
-    function unlock_click_event(){
-        //Locking toggle function
-        $("a.locking-status").click(function(e) {
-            e.preventDefault();
-            if (!$this.hasClass('locking-locked')) {
+        for (var key in this.text) {
+            if (typeof gettext == 'function') {
+                this.text[key] = gettext(this.text[key]);
+            }
+        }
+
+        var self = this;
+        $(document).on('click', 'a.locking-status', function(e) {
+            return self.removeLockOnClick(e);
+        });
+        // Disable lock when you leave
+        $(window).unload(function() {
+            // We have to assure that our lock_clear request actually
+            // gets through before the user leaves the page, so it
+            // shouldn't run asynchronously.
+            if (!self.urls.lock_clear) {
                 return;
             }
-            var $this = $(this);
-            var user = $this.attr('data-locked-by');
-            var lockId = $this.attr('data-lock-id');
-            var unlockUrl = getUrl("unlock", lockId);
-            if (unlockUrl) {
+            if (!self.lockingSupport) {
+                return;
+            }
+            $.ajax({
+                url: self.urls.lock_clear,
+                async: false,
+                cache: false
+            });
+        });
+        $(document).on('click', 'a', function(evt) {
+            return self.onLinkClick(evt);
+        });
+        $('a').bindFirst('click', function(evt) {
+            self.onLinkClick(evt);
+        });
+        
+        this.refreshLock();
+    };
+
+    $.extend(LockManager.prototype, {
+        isDisabled: false,
+        onLinkClick: function(e) {
+            var self = this;
+            $a = $(e.target);
+            if (!self.isDisabled) {
+                return true;
+            }
+
+            var isHandler = $a.hasClasses([
+                'grp-add-handler', 'add-handler',
+                'add-another',
+                'grp-delete-handler', 'delete-handler',
+                'delete-link',
+                'remove-handler', 'grp-remove-handler',
+                'arrow-up-handler', 'grp-arrow-up-handler',
+                'arrow-down-handler', 'grp-arrow-down-handler'
+            ]);
+            if (isHandler) {
+                e.stopPropagation();
+                e.preventDefault();
+                alert("Page is locked");
+                e.returnValue = false;
+                return false;
+            }
+        },
+        toggleCKEditorReadonly: function(isReadOnly) {
+            var toggleEditor = function(editor) {
+                if (editor.status == 'ready' || editor.status == 'basic_ready') {
+                    editor.setReadOnly(isReadOnly);
+                } else {
+                    editor.on('contentDom', function(e) {
+                        e.editor.setReadOnly(isReadOnly);
+                    });
+                }
+            };
+            if (window.CKEDITOR !== undefined) {
+                switch (CKEDITOR.status) {
+                    case 'basic_ready':
+                    case 'ready':
+                    case 'loaded':
+                    case 'basic_loaded':
+                        for (var instanceId in CKEDITOR.instances) {
+                            toggleEditor(CKEDITOR.instances[instanceId]);
+                        }
+                        break;
+                    default:
+                        CKEDITOR.on("instanceReady", function(e) {
+                            toggleEditor(e.editor);
+                        });
+                        break;
+                }
+            }
+        },
+        enableForm: function() {
+            if (!this.isDisabled) {
+                return;
+            }
+            this.isDisabled = false;
+            $(":input:not(.django-select2, .django-ckeditor-textarea)").not('._locking_initially_disabled').removeAttr("disabled");
+
+            this.toggleCKEditorReadonly(false);
+
+            if (typeof $.fn.select2 === "function") {
+                $('.django-select2').select2("enable", true);
+            }
+            $(document).trigger('locking:enabled');
+        },
+        disableForm: function(data) {
+            if (this.isDisabled) {
+                return;
+            }
+            this.isDisabled = true;
+            this.lockingSupport = false;
+            data = data || {};
+            if (this.lockOwner && this.lockOwner == (this.currentUser || data.current_user)) {
+                var msg;
+                if (data.locked_by) {
+                    msg = data.locked_by + " removed your lock.";
+                    this.updateNotification(this.text.lock_removed, data);
+                } else {
+                    msg = "You lost your lock.";
+                    this.updateNotification(this.text.has_expired, data);
+                }
+                alert(msg);
+            } else {
+                this.updateNotification(this.text.is_locked, data);
+            }
+            $(":input[disabled]").addClass('_locking_initially_disabled');
+            $(":input:not(.django-select2, .django-ckeditor-textarea)").attr("disabled", "disabled");
+
+            this.toggleCKEditorReadonly(true);
+
+            if (typeof $.fn.select2 === "function") {
+                $('.django-select2').select2("enable", false);
+            }
+            $(document).trigger('locking:disabled');
+        },
+        text: {
+            warn:        'Your lock on this page expires in less than %s ' +
+                         'minutes. Press save or <a href="">reload the page</a>.',
+            lock_removed: 'User "%(locked_by_name)s" removed your lock. If you save, ' +
+                         'your attempts may be thwarted due to another lock ' +
+                         ' or you may have stale data.',
+            is_locked:   'This page is locked by <em>%(locked_by_name)s</em> ' +
+                         'and editing is disabled.',
+            has_expired: 'You have lost your lock on this page. If you save, ' +
+                         'your attempts may be thwarted due to another lock ' +
+                         ' or you may have stale data.',
+            prompt_save: 'Do you wish to save the page?',
+        },
+        lockOwner: null,
+        currentUser: null,
+        refreshTimeout: null,
+        lockingSupport: true,  // false for changelist views and new objects
+        refreshLock: function() {
+            if (!this.urls.lock) {
+                return;
+            }
+            var self = this;
+
+            $.ajax({
+                url: self.urls.lock,
+                cache: false,
+                success: function(data, textStatus, jqXHR) {
+                    // The server gave us locking info. Either lock or keep it
+                    // unlocked while showing notification.
+                    if (!self.currentUser) {
+                        self.currentUser = data.current_user;
+                    }
+                    if (!data.applies) {
+                        self.enableForm();
+                    } else {
+                        self.disableForm(data);
+                    }
+                    self.lockOwner = data.locked_by;
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    try {
+                        data = $.parseJSON(jqXHR.responseText);
+                    } catch(e) {
+                        data = {};
+                    }
+                    if (!self.currentUser) {
+                        self.currentUser = data.current_user;
+                    }
+                    if (jqXHR.status === 404) {
+                        self.lockingSupport = false;
+                        self.enableForm();
+                        return;
+                    } else if (jqXHR.status === 423) {
+                        self.disableForm(data);
+                    } else {
+                        DJANGO_LOCKING.error();
+                    }
+                    self.lockOwner = data.locked_by;
+                },
+                complete: function() {
+                    if (self.refreshTimeout) {
+                        clearTimeout(self.refreshTimeout);
+                        self.refreshTimeout = null;
+                    }
+                    if (!self.lockingSupport) {
+                        return;
+                    }
+                    self.refreshTimeout = setTimeout(function() { self.refreshLock(); }, 30000);
+                }
+            });
+        },
+        getUrl: function(action, id) {
+            var baseUrl = this.urls[action];
+            if (typeof baseUrl == 'undefined') {
+                return null;
+            }
+            var regex = new RegExp("\/0\/" + action + "\/$");
+            return baseUrl.replace(regex, "/" + id + "/" + action + "/");
+        },
+        updateNotification: function(text, data) {
+            $('html, body').scrollTop(0);
+            text = interpolate(text, data, true);
+            this.$notificationElement.html(text).hide().fadeIn('slow');
+        },
+        // Locking toggle function
+        removeLockOnClick: function(e) {
+            e.preventDefault();
+            var $link = $(e.target);
+            if (!$link.hasClass('locking-locked')) {
+                return;
+            }
+            var user = $link.attr('data-locked-by');
+            var lockedObjId = $link.attr('data-locked-obj-id');
+            var removeLockUrl = this.getUrl("lock_remove", lockedObjId);
+            if (removeLockUrl) {
                 if (confirm("User '" + user + "' is currently editing this " +
-                            "content. Proceed with removing the lock?")) {
+                            "content. Proceed with lock removal?")) {
                     $.ajax({
-                        url: unlockUrl,
+                        url: removeLockUrl,
                         async: false,
                         success: function() {
-                            $this.hide();
+                            $link.hide();
                         }
                     });
                 }
             }
-        });
-    }
-
-    // Handles locking on the contrib.admin edit page.
-    DJANGO_LOCKING.admin = function() {
-        unlock_click_event();
-        
-        // Don't lock page if not on change-form page.
-        if (!($("body").hasClass("change-form"))) return;
-
-        if (typeof DJANGO_LOCKING.config != 'object') {
-            return;
         }
-        var urls = DJANGO_LOCKING.config.urls;
-
-        if (typeof urls != 'object' || !urls['lock']) {
-            return;
+    });
+    $.fn.djangoLocking = function() {
+        // Only use the first element in the jQuery list
+        var $this = this.eq(0);
+        var lockManager = $this.data('djangoLocking');
+        if (!lockManager) {
+            lockManager = new LockManager($this);
         }
-        if (urls['lock'].match(/\/0\/lock\/$/)) {
-            return;
-        }
-
-        // Texts.
-        var text = {
-            warn: gettext('Your lock on this page expires in less than %s' +
-                ' minutes. Press save or <a href=".">reload the page</a>.'),
-            is_locked: gettext('This page is locked by <em>%(for_user)s' +
-                '</em> and editing is disabled.'),
-            has_expired: gettext('Your lock on this page is expired!' +
-                ' If you save now, your attempts may be thwarted due to another lock,' +
-                ' or even worse, you may have stale data.'
-            ),
-            prompt_to_save: 'Do you wish to save the page?',
-        };
-        
-        // Creates empty div in top of page.
-        var create_notification_area = function() {
-            $("#content").prepend(
-                '<div id="locking_notification"></div>');
-        };
-        
-        // Scrolls to the top, updates content of notification area and fades
-        // it in.
-        var update_notification_area = function(content, func) {
-            $('html, body').scrollTop(0);
-            $("#locking_notification").html(content).hide()
-                                      .fadeIn('slow', func);
-        };
-        
-        // Displays notice on top of page that the page is locked by someone
-        // else.
-        var display_islocked = function(data) {
-            update_notification_area(interpolate(text.is_locked, data, true));
-        };
-        
-        // Disables all form elements.
-        var disable_form = function() {
-            $(":input[disabled]").addClass('_locking_initially_disabled');
-            $(":input").attr("disabled", "disabled");
-
-            // Grapelli's delete is an anchor tag :(
-            $('a.delete-link').each(function() {
-                // Copy over the old_href
-                $(this).attr('old_href', $(this).attr('href'));
-                $(this).attr('href', 'javascript:alert("Page is locked.");');
-            });
-
-            // Handle CKeditors as well, which is a little annoying since there
-            // is an inherent race condition with it.
-            if(window.CKEDITOR !== undefined) {
-                if (CKEDITOR.status != 'basic_ready' && CKEDITOR.status != 'loaded') {
-                    CKEDITOR.on("instanceReady", function(e) {
-                        e.editor.setReadOnly(true);
-                    });
-                } else {
-                    for (var instanceId in CKEDITOR.instances) {
-                        var instance = CKEDITOR.instances[instanceId];
-                        instance.setReadOnly(true);
-                    }
-                }
-            }
-        };
-        
-        // Enables all form elements that was not disabled from the start.
-        var enable_form = function() {
-            $(":input").not('._locking_initially_disabled').removeAttr("disabled");
-            $('a.delete-link').each(function() {
-                $(this).attr('href', $(this).attr('old_href'));
-            });
-            // Handle CKeditors as well
-            if(window.CKEDITOR !== undefined) {
-                if (CKEDITOR.status != 'basic_ready' && CKEDITOR.status != 'loaded') {
-                    CKEDITOR.on("instanceReady", function(e) {
-                        e.editor.setReadOnly(false);
-                    });
-                } else {
-                    for (var instanceId in CKEDITOR.instances) {
-                        var instance = CKEDITOR.instances[instanceId];
-                        instance.setReadOnly(false);
-                    }
-                }
-            }
-
-            // Handle django-select2.  We really should add events to
-            // django-locking so other items can know when to enable/disable
-            if($.fn.select2 !== undefined) {
-                $('.django-select2').each(function() {
-                    $(this).select2("enable");
-                });
-            }
-
-        };
-        
-        // The user did not save in time, expire the page.
-        var expire_page = function() {
-            update_notification_area(text.has_expired);
-        };
-
-
-        var lock_renewer; // This needs to live in higher state so other functions can clear it.
-        var setup_locked_page = function() {
-
-            // Keep locked
-            lock_renewer = setInterval(refresh_lock, 30000);
-            
-            // Disable lock when you leave
-            $(window).unload(function() {
-                // We have to assure that our unlock request actually
-                // gets through before the user leaves the page, so it
-                // shouldn't run asynchronously.
-                if (!urls.unlock) {
-                    return;
-                }
-                $.ajax({
-                    url: urls.unlock,
-                    async: false,
-                    cache: false
-                });
-            });
-
-        };
-        
-        // Request a lock on the page, and unlocks page when the user leaves.
-        // Adds delayed execution of user notifications.
-        var lock_page = function() {
-            if (!urls.lock) {
-                return;
-            }
-            $.ajax({
-                url: urls.lock,
-                cache: false,
-                complete: function(jqXHR, textStatus) {
-                    if (jqXHR.status === 403) {
-                        display_islocked();
-                    } else if (jqXHR.status === 200) {
-                        enable_form();
-                        setup_locked_page();
-                    } else {
-                        DJANGO_LOCKING.error();
-                    }
-                }
-            });
-        };
-
-        var refresh_lock = function(){
-            if (!urls.lock_status) {
-                return;
-            }
-            $.getJSON(urls.lock_status, function(resp){
-                if (resp.for_user === DJANGO_GLOBALS.username) {
-                    $.get(urls.lock);
-                    console.log('Renewed');
-                } else {
-                    var msg; // If possible, we should let the user know who's competing for the lock.
-                    if(resp.for_user || false) {
-                        msg = resp.for_user + " removed your lock on this story.";
-                    } else {
-                        msg = "You lost your lock on this story. Save your work.";
-                    }
-                    alert(msg); // This should be obnoxious and grab focus.
-                    expire_page();
-                    clearInterval(lock_renewer); // Stop making calls, we're done.
-                }
-            });
-        };
-        
-        // The server gave us locking info. Either lock or keep it unlocked
-        // while showing notification.
-        var parse_succesful_request = function(data, textStatus, jqXHR) {
-            if (!data.applies) {
-                lock_page();
-            } else {
-                display_islocked(data);
-            }
-        };
-        
-        // Polls server for the page lock status.
-        var request_locking_info = function() {
-            if (!urls.lock_status) {
-                return;
-            }
-            $.ajax({
-                url: urls.lock_status,
-                success: parse_succesful_request,
-                error: DJANGO_LOCKING.error,
-                cache: false
-            });
-        };
-        
-        // Initialize.
-        disable_form();
-        create_notification_area();
-        request_locking_info();
-
+        return lockManager;
     };
 
-    // Catches any error and redirects to a safe place if any.
-    try {
-        $(DJANGO_LOCKING.admin);
-    } catch(err) {
-        DJANGO_LOCKING.error();
-    }
+    $(document).ready(function() {
+        var $target = $("#content-inner, #content").eq(0);
+        var $notificationElement = $('<div id="locking_notification"></div>').prependTo($target);
+        $notificationElement.djangoLocking();
+    });
 
 })((typeof grp == 'object' && grp.jQuery)
         ? grp.jQuery

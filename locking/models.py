@@ -153,7 +153,7 @@ class Lock(models.Model):
         until = locking_settings.TIME_UNTIL_EXPIRATION - locked_delta
         return timedelta_to_seconds(until)
 
-    def lock_for(self, user, hard_lock=True):
+    def lock_for(self, user, hard_lock=True, lock_duration=None, override=False):
         """
         Together with ``unlock_for`` this is probably the most important
         method on this model. If applicable to your use-case, you should lock
@@ -178,19 +178,24 @@ class Lock(models.Model):
             raise ValueError("You should pass a valid auth.User to lock_for.")
 
         if self.lock_applies_to(user):
-            raise ObjectLockedError("This object is already locked by another"
-                " user. May not override, except through the `unlock` method.")
-        else:
-            self._locked_at = datetime.today()
-            self._locked_by = user
-            self._hard_lock = self.__init_hard_lock = hard_lock
-            # an administrative toggle, to make it easier for devs to extend `django-locking`
-            # and react to locking and unlocking
-            self._state.locking = True
-            logger.debug(
-                "Initiated a %s lock for `%s` at %s" % (
-                self.lock_type, self.locked_by, self.locked_at
-                ))
+            if override:
+                lock_duration = locking_settings.LOCK_CLEAR_TIMEOUT
+            else:
+                raise ObjectLockedError("This object is already locked by another"
+                    " user. May not override, except through the `unlock` method.")
+        locked_at = datetime.now()
+        if lock_duration:
+            locked_at += lock_duration - locking_settings.TIME_UNTIL_EXPIRATION
+        self._locked_at = locked_at
+        self._locked_by = user
+        self._hard_lock = self.__init_hard_lock = hard_lock
+        # an administrative toggle, to make it easier for devs to extend `django-locking`
+        # and react to locking and unlocking
+        self._state.locking = True
+        logger.debug(
+            "Initiated a %s lock for `%s` at %s" % (
+            self.lock_type, self.locked_by, self.locked_at
+            ))
 
     def unlock(self):
         """
@@ -204,7 +209,7 @@ class Lock(models.Model):
         self._state.locking = True
         logger.debug("Disengaged lock on `%s`" % self)
 
-    def unlock_for(self, user):
+    def unlock_for(self, user, override=False):
         """
         See ``lock_for``. If the lock was initiated for a specific user,
         unlocking will fail unless that same user requested the unlocking.
@@ -215,7 +220,7 @@ class Lock(models.Model):
         """
         logger.debug("Attempting to open up a lock on `%s` by user `%s`" % (
                                                                   self, user))
-        self.unlock()
+        self.lock_for(user, override=override)
 
     def lock_applies_to(self, user):
         """
@@ -226,7 +231,9 @@ class Lock(models.Model):
         logger.debug("Checking if the lock on `%s` applies to user `%s`" % (
                                                                   self, user))
         # a lock does not apply to the person who initiated the lock
-        if self.is_locked and self.locked_by != user:
+        user_pk = getattr(user, 'pk', None)
+        locked_user_pk = self._locked_by_id
+        if self.is_locked and locked_user_pk != user_pk:
             logger.debug("Lock applies.")
             return True
         else:
@@ -241,7 +248,9 @@ class Lock(models.Model):
         for most intents and
         purposes.
         """
-        return user == self.locked_by
+        user_pk = getattr(user, 'pk', None)
+        locked_user_pk = self._locked_by_id
+        return bool(self.is_locked and user_pk and locked_user_pk == user_pk)
 
     def save(self, *vargs, **kwargs):
         super(Lock, self).save(*vargs, **kwargs)

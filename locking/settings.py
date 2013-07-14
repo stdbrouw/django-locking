@@ -1,7 +1,6 @@
 from django.conf import settings
 
 
-MEDIA_URL = getattr(settings, 'MEDIA_URL', '/media/')
 LOCKING_URL = getattr(settings, 'LOCKING_URL', '/locking/')
 STATIC_URL = getattr(settings, 'STATIC_URL', '/static/')
 
@@ -36,4 +35,7 @@ def get_timedelta_setting(key, default=None):
 
 TIME_UNTIL_EXPIRATION = get_timedelta_setting('time_until_expiration', 600)
 TIME_UNTIL_WARNING = get_timedelta_setting('time_until_warning', 540)
+# The time it takes for a lock created when a user clears another lock,
+# before the object returns to an unlocked state.
+LOCK_CLEAR_TIMEOUT = get_timedelta_setting('lock_clear_timeout', 30)
 LOCK_TIMEOUT = getattr(settings, 'LOCK_TIMEOUT', 1800)
