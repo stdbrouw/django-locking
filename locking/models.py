@@ -220,7 +220,12 @@ class Lock(models.Model):
         """
         logger.debug("Attempting to open up a lock on `%s` by user `%s`" % (
                                                                   self, user))
-        self.lock_for(user, override=override)
+        if override:
+            self.lock_for(user, override=override)
+        else:
+            if not self.lock_applies_to(user):
+                self.unlock()
+                self.save()
 
     def lock_applies_to(self, user):
         """
