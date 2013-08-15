@@ -6,7 +6,7 @@ from django.utils.timesince import timeuntil
 from locking.models import Lock
 
 
-def locking_form_factory(model, form=ModelForm, *args, **kwargs):
+def locking_form_factory(model, form=ModelForm, request=None, *args, **kwargs):
     """
     Since we no longer decorate or extend models as part of locking, this is
     the most reliable way to throw ValidationErrors for hard locks in the
@@ -21,8 +21,6 @@ def locking_form_factory(model, form=ModelForm, *args, **kwargs):
         - We pass the new form class in place of the original to
           modelform_factory().
     """
-
-    request = kwargs.pop('request')
     user = getattr(request, 'user', None)
 
     class locking_form(form):
@@ -72,4 +70,4 @@ def locking_form_factory(model, form=ModelForm, *args, **kwargs):
                 self._update_errors({NON_FIELD_ERRORS: e.messages})
 
     locking_form.__name__ = form.__name__
-    return modelform_factory(model, form=locking_form, *args, **kwargs)
+    return locking_form
