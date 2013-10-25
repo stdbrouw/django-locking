@@ -237,7 +237,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
                     try {
-                        data = $.parseJSON(jqXHR.responseText);
+                        data = $.parseJSON(jqXHR.responseText) || {};
                     } catch(e) {
                         data = {};
                     }

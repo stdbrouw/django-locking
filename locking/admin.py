@@ -33,7 +33,7 @@ class LockableAdminMixin(object):
             'js': (
                 locking_settings.STATIC_URL + 'locking/js/jquery.url.packed.js',
                 reverse('admin:%s_%s_lock_js' % info, args=[pk]),
-                locking_settings.STATIC_URL + "locking/js/admin.locking.js?v=5",
+                locking_settings.STATIC_URL + "locking/js/admin.locking.js?v=6",
             ),
             'css': {
                 'all': (locking_settings.STATIC_URL + 'locking/css/locking.css',),
