@@ -1,4 +1,3 @@
-import re
 import functools
 import json
 
@@ -7,13 +6,12 @@ try:
 except ImportError:
     from django.contrib import admin
 
+from django import forms
 from django.core.urlresolvers import reverse
 from django.utils import html as html_utils
 from django.utils.functional import curry
-from django.utils.safestring import mark_safe
 from django.utils.timesince import timeuntil
 from django.utils.translation import ugettext as _
-from django.contrib.admin.util import flatten_fieldsets
 
 from .models import Lock
 from .forms import locking_form_factory
@@ -25,27 +23,22 @@ json_encode = json.JSONEncoder(indent=4).encode
 
 class LockableAdminMixin(object):
 
-    @property
-    def media(self):
+    def locking_media(self, obj=None):
         opts = self.model._meta
         info = (opts.app_label, opts.module_name)
 
-        media = super(LockableAdminMixin, self).media
-        media.add_js((
-            locking_settings.STATIC_URL + 'locking/js/jquery.url.packed.js',
-            # We call admin:%(app_label)s_%(model)s_lock_js with 0 (the pk)
-            # with the intention of doing a string replace on the url in
-            # render_change_form(), where we know what the primary key is.
-            #
-            # This is hacky, but necessary since the add_view does not have a
-            # primary key, given that the object has not yet been saved.
-            reverse('admin:%s_%s_lock_js' % info, args=[0]),
-            locking_settings.STATIC_URL + "locking/js/admin.locking.js?v=5"
-        ))
-        media.add_css({
-            "all": (locking_settings.STATIC_URL + 'locking/css/locking.css',)
+        pk = getattr(obj, 'pk', None) or 0
+
+        return forms.Media(**{
+            'js': (
+                locking_settings.STATIC_URL + 'locking/js/jquery.url.packed.js',
+                reverse('admin:%s_%s_lock_js' % info, args=[pk]),
+                locking_settings.STATIC_URL + "locking/js/admin.locking.js?v=5",
+            ),
+            'css': {
+                'all': (locking_settings.STATIC_URL + 'locking/css/locking.css',),
+            },
         })
-        return media
 
     def get_urls(self):
         """
@@ -95,14 +88,11 @@ class LockableAdminMixin(object):
         return urlpatterns
 
     def render_change_form(self, request, context, add=False, obj=None, **kwargs):
-        obj_pk = getattr(obj, 'pk', None)
-        if not add and obj_pk:
-            media = context.pop('media', None)
-            if media:
-                # This is our hacky string-replacement, described more fully
-                # in the comments for the `media` @property
-                media = re.sub(r'/0/(locking_variables\.js)', r'/%d/\1' % obj_pk, unicode(media))
-                context['media'] = mark_safe(media)
+        if not add and getattr(obj, 'pk', None):
+            locking_media = self.locking_media(obj)
+            if isinstance(context['media'], basestring):
+                locking_media = unicode(locking_media)
+            context['media'] += locking_media
         return super(LockableAdminMixin, self).render_change_form(
                 request, context, add=add, obj=obj, **kwargs)
 
@@ -184,7 +174,6 @@ class LockableAdminMixin(object):
 
     get_lock_for_admin.allow_tags = True
     get_lock_for_admin.short_description = 'Lock'
-
 
 
 class LockableAdmin(LockableAdminMixin, admin.ModelAdmin):
