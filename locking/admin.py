@@ -23,22 +23,22 @@ json_encode = json.JSONEncoder(indent=4).encode
 
 class LockableAdminMixin(object):
 
-    def locking_media(self, obj=None):
-        opts = self.model._meta
-        info = (opts.app_label, opts.module_name)
-
-        pk = getattr(obj, 'pk', None) or 0
-
-        return forms.Media(**{
+    @property
+    def media(self):
+        return super(LockableAdminMixin, self).media + forms.Media(**{
             'js': (
-                locking_settings.STATIC_URL + 'locking/js/jquery.url.packed.js',
-                reverse('admin:%s_%s_lock_js' % info, args=[pk]),
                 locking_settings.STATIC_URL + "locking/js/admin.locking.js?v=6",
             ),
             'css': {
                 'all': (locking_settings.STATIC_URL + 'locking/css/locking.css',),
-            },
-        })
+            }})
+
+    def locking_media(self, obj=None):
+        opts = self.model._meta
+        info = (opts.app_label, opts.module_name)
+        pk = getattr(obj, 'pk', None) or 0
+        return forms.Media(js=(
+            reverse('admin:%s_%s_lock_js' % info, args=[pk]),))
 
     def get_urls(self):
         """
