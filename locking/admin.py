@@ -106,7 +106,10 @@ class LockableAdminMixin(object):
         """
         response = super(LockableAdminMixin, self).changelist_view(request, extra_context)
         if isinstance(response, TemplateResponse):
-            response.context_data['media'] += self.locking_media()
+            try:
+                response.context_data['media'] += self.locking_media()
+            except KeyError:
+                pass
         return response
 
     def render_change_form(self, request, context, add=False, obj=None, **kwargs):
