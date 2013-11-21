@@ -122,11 +122,15 @@ def locking_js(model_admin, request, object_id, extra_context=None):
     info = (opts.app_label, opts.module_name)
 
     locking_urls = {
-        "lock": reverse("admin:%s_%s_lock" % info, args=[object_id]),
         "lock_remove": reverse("admin:%s_%s_lock_remove" % info, args=[object_id]),
-        "lock_clear":  reverse("admin:%s_%s_lock_clear" % info, args=[object_id]),
-        "lock_status": reverse("admin:%s_%s_lock_status" % info, args=[object_id]),
     }
+
+    if object_id and object_id != '0':
+        locking_urls.update({
+            "lock": reverse("admin:%s_%s_lock" % info, args=[object_id]),
+            "lock_clear":  reverse("admin:%s_%s_lock_clear" % info, args=[object_id]),
+            "lock_status": reverse("admin:%s_%s_lock_status" % info, args=[object_id]),        
+        })
 
     js_vars = {
         'urls': locking_urls,

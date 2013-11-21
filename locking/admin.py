@@ -15,6 +15,12 @@ from django.utils.translation import ugettext as _
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 
+try:
+    from django.template.response import TemplateResponse
+except ImportError:
+    # django <= 1.2, not fully supported
+    class TemplateResponse(object): pass
+
 from .models import Lock
 from .forms import locking_form_factory
 from . import settings as locking_settings, views as locking_views
@@ -93,9 +99,15 @@ class LockableAdminMixin(object):
 
     @csrf_protect_m
     def changelist_view(self, request, extra_context=None):
-        template_response = super(LockableAdminMixin, self).changelist_view(request, extra_context)
-        template_response.context_data['media'] += self.locking_media()
-        return template_response
+        """
+        Append locking media to the changelist view.
+
+        This method will not work properly on django <= 1.2
+        """
+        response = super(LockableAdminMixin, self).changelist_view(request, extra_context)
+        if isinstance(response, TemplateResponse):
+            response.context_data['media'] += self.locking_media()
+        return response
 
     def render_change_form(self, request, context, add=False, obj=None, **kwargs):
         if not add and getattr(obj, 'pk', None):
