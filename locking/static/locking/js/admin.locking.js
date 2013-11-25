@@ -71,8 +71,10 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
         $(document).on('click', 'a.locking-status', function(e) {
             return self.removeLockOnClick(e);
         });
+
         // Disable lock when you leave
-        $(window).unload(function() {
+        $(window).on('beforeunload', function() {
+
             // We have to assure that our lock_clear request actually
             // gets through before the user leaves the page, so it
             // shouldn't run asynchronously.
@@ -82,11 +84,12 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
             if (!self.lockingSupport) {
                 return;
             }
-            $.ajax({
-                url: self.urls.lock_clear,
-                async: false,
-                cache: false
-            });
+            
+            // We don't need IE support anyway.
+            var request = new XMLHttpRequest();
+            request.open('GET', self.urls.lock_clear, false);  // `false` makes the request synchronous
+            request.send(null);
+
         });
         $(document).on('click', 'a', function(evt) {
             return self.onLinkClick(evt);
