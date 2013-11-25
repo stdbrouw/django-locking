@@ -85,10 +85,11 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                 return;
             }
             
-            // We don't need IE support anyway.
-            var request = new XMLHttpRequest();
-            request.open('GET', self.urls.lock_clear, false);  // `false` makes the request synchronous
-            request.send(null);
+            $.ajax({
+                url: self.urls.lock_clear,
+                async: false,
+                cache: false
+            });
 
         });
         $(document).on('click', 'a', function(evt) {
