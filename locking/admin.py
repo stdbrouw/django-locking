@@ -23,6 +23,9 @@ class LockableAdmin(admin.ModelAdmin):
         # 
         # See http://docs.djangoproject.com/en/dev/topics/forms/media/#media-as-a-dynamic-property
         # for more information about dynamic media definitions.
+
+        ## Pull in admin media from ModelAdmin
+        super_media = super(LockableAdmin, self)._media()
         
         css = {
             'all': ('locking/css/locking.css',)
@@ -35,7 +38,7 @@ class LockableAdmin(admin.ModelAdmin):
             'locking/js/admin.locking.js',
             )
         
-        return forms.Media(css=css, js=js)
+        return super_media + forms.Media(css=css, js=js)
     
     def changelist_view(self, request, extra_context=None):
         # we need the request objects in a few places where it's usually not present, 
