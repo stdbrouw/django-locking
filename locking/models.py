@@ -39,6 +39,24 @@ class LockingManager(models.Manager):
                     'instance': unicode(obj),
                     'app_label': obj._meta.app_label,
                     'object_name': obj._meta.object_name,})
+
+        if filters is None:
+            # Check if the models define a GenericRelation to locking.Lock,
+            # and if so use that. This allows the use of prefetch_related()
+            # for locks in changelist views.
+            generic_rels = [f for f in obj._meta.many_to_many
+                            if isinstance(f, generic.GenericRelation)]
+            try:
+                locks_field = [f.name for f in generic_rels if f.rel.to == self.model][0]
+            except IndexError:
+                pass
+            else:
+                locks = getattr(obj, locks_field).all()
+                try:
+                    return locks[0]
+                except IndexError:
+                    raise self.model.DoesNotExist("Lock matching query does not exist.")
+
         filter_kwargs = {
             'content_type': ContentType.objects.get_for_model(obj.__class__),
             'object_id': obj.pk,
@@ -81,6 +99,9 @@ class Lock(models.Model):
 
     _hard_lock = models.BooleanField(db_column='hard_lock', default=False,
                                      editable=False)
+
+    class Meta:
+        ordering = ('-_locked_at',)
 
     # We don't want end-developers to manipulate database fields directly,
     # hence we're putting these behind simple getters.
