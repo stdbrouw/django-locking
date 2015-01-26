@@ -22,5 +22,5 @@ setup(name='django-locking',
       download_url='http://www.github.com/RobCombs/django-locking/tarball/master',
       license='BSD',
       packages=find_packages(),
-      install_requires=['django-staticfiles','simplejson'],
+      install_requires=['django-staticfiles'],
       )
