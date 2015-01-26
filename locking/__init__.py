@@ -1,2 +1,6 @@
-__version_info__ = (2, 2, 10)
-VERSION = __version__ = '.'.join(map(str, __version_info__))
+import pkg_resources
+
+try:
+    __version__ = pkg_resources.get_distribution('locking').version
+except pkg_resources.DistributionNotFound:
+    __version__ = None
