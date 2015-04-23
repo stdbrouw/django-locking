@@ -1,4 +1,4 @@
-import simplejson
+import json
 
 from django.http import HttpResponse
 from django.conf import settings
@@ -65,7 +65,7 @@ def unlock(request, app, model, id):
 def is_locked(request, app, model, id):
     try:
         obj = Lock.objects.get(entry_id=id, app=app, model=model)	
-        response = simplejson.dumps({
+        response = json.dumps({
             "is_active": obj.is_locked,
             "for_user": getattr(obj.locked_by, 'username', None),
             "applies": obj.lock_applies_to(request.user)
@@ -75,7 +75,7 @@ def is_locked(request, app, model, id):
         return HttpResponse(status=200)
 @log
 def js_variables(request):
-    response = "var locking = " + simplejson.dumps({
+    response = "var locking = " + json.dumps({
         'base_url': "/".join(request.path.split('/')[:-1]),
         'timeout': LOCK_TIMEOUT,
         'time_until_expiration': settings.LOCKING['time_until_expiration'],
